@@ -1,0 +1,8 @@
+build
+test/gta_state
+test/test_data/*.crt
+test/test_data/*.key
+test/test_data/*.bin
+test/test_data/*.enc
+test/test_data/*.csr
+test/test_data/*.srl

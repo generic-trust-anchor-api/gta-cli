@@ -1,0 +1,1 @@
+com.github.generic-trust-anchor-api.enroll.subject_rdn=CN=Dummy Product Name,O=Dummy Organization,OU=Dummy Organizational Unit
