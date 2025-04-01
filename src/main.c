@@ -601,11 +601,12 @@ int main(int argc, char *argv[])
             gta_access_policy_handle_t h_auth_admin = GTA_HANDLE_INVALID;
             struct gta_protection_properties_t protection_properties = { 0 };
 
-            h_auth_use = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_BASIC_TOKEN, &errinfo);
+            h_auth_use = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL, &errinfo);
             if(h_auth_use == NULL) {
                 printf("h_auth_use failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
+            h_auth_admin = h_auth_use;
 
             if(!gta_personality_create(h_inst, arguments.id_val, arguments.pers, arguments.app_name, arguments.prof,
                     h_auth_use, h_auth_admin, protection_properties, &errinfo)) {
