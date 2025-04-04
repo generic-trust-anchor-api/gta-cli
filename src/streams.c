@@ -241,6 +241,7 @@ void ostream_to_buf_init
     ostream->buf = buf;
     ostream->buf_size = buf_size;
     ostream->buf_pos = 0;
+    memset(buf, 0x00, buf_size);
 }
 
 /*** end of file ***/
