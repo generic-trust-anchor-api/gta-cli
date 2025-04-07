@@ -431,7 +431,7 @@ void show_function_help(enum functions func)
             printf("  --pers=PERSONALITY_NAME               personality for which an enrollment request should be created\n");
             printf("  --prof=PROFILE_NAME                   profile defining which kind of enrollment request should be created\n");
             printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
-            printf("  [(--ctx_attr_file=FILE)...]           extra attributes provided in a file with ATTR_TPYE=ATTR_VAL pairs\n");
+            printf("  [(--ctx_attr_file=FILE)...]           extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
             break;
 
         default:
