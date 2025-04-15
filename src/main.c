@@ -254,7 +254,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
                     p_new_attribute = realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num*sizeof(t_attribute));
                     if (NULL != p_new_attribute) {
                         arguments->ctx_attributes.p_attr = (t_attribute*)p_new_attribute;
-                        if (0 == parse_attributes(str_temp,&(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num-1]))) {
+                        if (EXIT_SUCCESS != parse_attributes(str_temp,&(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num-1]))) {
                             fprintf(stderr, "Missing function arguments\n");
                             return EXIT_FAILURE;
                         }
@@ -282,7 +282,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
             p_new_attribute= realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num*sizeof(t_attribute));
             if (NULL != p_new_attribute) {
                 arguments->ctx_attributes.p_attr = (t_attribute*)p_new_attribute;
-                if (0 == parse_attributes(argv[i],&(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num-1]))) {
+                if (EXIT_SUCCESS != parse_attributes(argv[i],&(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num-1]))) {
                     fprintf(stderr, "Missing function arguments\n");
                     return EXIT_FAILURE;
                 }
@@ -525,7 +525,7 @@ int main(int argc, char *argv[])
 
     /* Parse the arguments */
     ret = parse_args(argc, argv, &arguments);
-    if (0 != EXIT_SUCCESS) {
+    if (EXIT_SUCCESS != ret) {
         return ret;
     }
 
