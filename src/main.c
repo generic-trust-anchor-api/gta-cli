@@ -1114,7 +1114,7 @@ int main(int argc, char *argv[])
                 for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
                     /*printf("     %s: %s\n", arguments.ctx_attributes.p_attr[i].p_type, arguments.ctx_attributes.p_attr[i].p_val);*/
 
-                    istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val));
+                    istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
 
                     if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
                         printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
