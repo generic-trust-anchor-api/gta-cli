@@ -151,15 +151,15 @@ gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generi
 check_for_error "personality_enroll"
 echo ""
 
-#echo "gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll  --ctx_attr com.github.generic-trust-anchor-api.enroll.subject_rdn=CN=Device1"
-#gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr com.github.generic-trust-anchor-api.enroll.subject_rdn="CN=Device1"
-#check_for_error "personality_enroll"
-#echo ""
-#
-#echo "gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt"
-#gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt
-#check_for_error "personality_enroll"
-#echo ""
+echo "gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll  --ctx_attr com.github.generic-trust-anchor-api.enroll.subject_rdn=CN=Device1"
+gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr com.github.generic-trust-anchor-api.enroll.subject_rdn="CN=Device1"
+check_for_error "personality_enroll"
+echo ""
+
+echo "gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt"
+gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt
+check_for_error "personality_enroll"
+echo ""
 
 num_tests=$(($num_ok+$num_fails))
 
