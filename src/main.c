@@ -442,6 +442,7 @@ void show_function_help(enum functions func)
             printf("Usage: gta-cli personality_remove --options\n");
             printf("Options:\n");
             printf("  --pers=PERSONALITY_NAME   personality which should be deleted\n");
+            printf("  --prof=PROFILE_NAME       profile that should be used deleting the personality\n");
             break;
 
         default:
