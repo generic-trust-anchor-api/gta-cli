@@ -68,6 +68,7 @@ enum functions {
     personality_attributes_enumerate,
     authenticate_data_detached,
     personality_enroll,
+    personality_remove,
     FUNC_UNKNOWN
 };
 
@@ -178,6 +179,9 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     }
     else if (strcmp(argv[1], "personality_enroll") == 0) {
         arguments->func = personality_enroll;
+    }
+    else if (strcmp(argv[1], "personality_remove") == 0) {
+        arguments->func = personality_remove;
     }
     else {
         fprintf(stderr, "Unknown argument: %s\n", argv[1]);
@@ -324,6 +328,7 @@ void show_help()
     printf("  personality_attributes_enumerate   enumerate all attributes belonging to a personality\n");
     printf("  authenticate_data_detached         calculate a cryptographic seal for the provided data according to the given profile and personality\n");
     printf("  personality_enroll                 create an enrollment request for a personality according to the given profile\n");
+    printf("  personality_remove                 remove a personality");
 
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register)/sizeof(profiles_to_register[0])); ++i) {
@@ -432,6 +437,11 @@ void show_function_help(enum functions func)
             printf("  --prof=PROFILE_NAME                   profile defining which kind of enrollment request should be created\n");
             printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
             printf("  [(--ctx_attr_file=FILE)...]           extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
+            break;
+        case personality_remove:
+            printf("Usage: gta-cli personality_remove --options\n");
+            printf("Options:\n");
+            printf("  --pers=PERSONALITY_NAME   personality which should be deleted\n");
             break;
 
         default:
@@ -1137,7 +1147,35 @@ int main(int argc, char *argv[])
 
             break;
         }
+        case personality_remove: {
+            if(NULL == arguments.pers || NULL == arguments.prof) {
+                printf("Invalid or Missing function arguments\n");
+                show_function_help(arguments.func);
+                return EXIT_FAILURE;
+            }
 
+            gta_errinfo_t errinfo = 0;
+            gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
+
+            h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
+
+            if (NULL == h_ctx) {
+                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                return EXIT_FAILURE;
+            }
+
+            if (!gta_personality_remove(h_ctx, &errinfo)) {
+                printf("gta_personality_remove failed with ERROR_CODE %ld\n", errinfo);
+                return EXIT_FAILURE;
+            }
+
+            if(!gta_context_close(h_ctx, &errinfo)) {
+                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                return EXIT_FAILURE;
+            }
+
+            break;
+        }
 
         default:
             fprintf(stderr, "Unknown function.\n");
