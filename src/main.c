@@ -328,7 +328,7 @@ void show_help()
     printf("  personality_attributes_enumerate   enumerate all attributes belonging to a personality\n");
     printf("  authenticate_data_detached         calculate a cryptographic seal for the provided data according to the given profile and personality\n");
     printf("  personality_enroll                 create an enrollment request for a personality according to the given profile\n");
-    printf("  personality_remove                 remove a personality");
+    printf("  personality_remove                 remove a personality\n");
 
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register)/sizeof(profiles_to_register[0])); ++i) {
