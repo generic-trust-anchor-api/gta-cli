@@ -1,5 +1,5 @@
 #;**********************************************************************;
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: Apache-2.0
 #
 # Copyright (c) 2025, Siemens AG
 #
@@ -12,7 +12,7 @@ project('CLI for GTA API',
             'warning_level=3',  # highest warning level
             'buildtype=plain',
         ],
-        license: 'MPL 2.0',
+        license: 'Apache-2.0',
         meson_version: '>=0.56.0',
         version: '0.1'
 )
