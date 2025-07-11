@@ -27,6 +27,15 @@ check_for_error () {
   ((num_ok=num_ok+1))
   fi
 }
+check_for_success () {
+  if [ $? -ne 0 ]
+  then
+  ((num_ok=num_ok+1))
+  else
+  ((num_fails=num_fails+1))
+  failed_functions+=("$1")
+  fi
+}
 
 echo "gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED"
 gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED
@@ -58,6 +67,9 @@ gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_ec_defaul
 check_for_error "personality_create"
 echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa"
 gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa
+check_for_error "personality_create"
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default_delete --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa"
+gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default_delete --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa
 check_for_error "personality_create"
 echo ""
 
@@ -159,6 +171,14 @@ echo ""
 echo "gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt"
 gta-cli personality_enroll --pers=test_pers_rsa_default --prof=com.github.generic-trust-anchor-api.basic.enroll --ctx_attr_file=./test_data/ctx_attr.txt
 check_for_error "personality_enroll"
+echo ""
+
+echo "gta-cli personality_remove --pers=test_pers_rsa_default_delete --prof=com.github.generic-trust-anchor-api.basic.tls"
+gta-cli personality_remove --pers=test_pers_rsa_default_delete --prof=com.github.generic-trust-anchor-api.basic.tls
+check_for_error "personality_remove"
+# validate successful removal of personality
+gta-cli personality_enumerate --id_val=DE-AD-BE-EF-FE-ED | grep "test_pers_rsa_default_delete"
+check_for_success "personality_remove"
 echo ""
 
 num_tests=$(($num_ok+$num_fails))
