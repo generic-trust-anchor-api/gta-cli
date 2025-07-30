@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: MPL-2.0 */
 /**********************************************************************
  * Copyright (c) 2025, Siemens AG
  **********************************************************************/
@@ -28,7 +28,8 @@ static char profiles_to_register[][MAXLEN_PROFILE] = {
     "com.github.generic-trust-anchor-api.basic.ec",
     "com.github.generic-trust-anchor-api.basic.tls",
     "com.github.generic-trust-anchor-api.basic.jwt",
-    "com.github.generic-trust-anchor-api.basic.enroll"
+    "com.github.generic-trust-anchor-api.basic.enroll",
+    "org.opcfoundation.ECC-nistP256"
 };
 
 bool basic_sw_provider_gta_register_provider(
@@ -436,7 +437,9 @@ void show_function_help(enum functions func)
             printf("  --pers=PERSONALITY_NAME               personality for which an enrollment request should be created\n");
             printf("  --prof=PROFILE_NAME                   profile defining which kind of enrollment request should be created\n");
             printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
+            printf("                                        if a profile defines ATTR_VAL to be presented as binary data ATTR_VAL should indicate a binary file\n");
             printf("  [(--ctx_attr_file=FILE)...]           extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
+            printf("                                        if a profile defines ATTR_VAL to be presented as binary data ATTR_VAL should indicate a binary file\n");
             break;
         case personality_remove:
             printf("Usage: gta-cli personality_remove --options\n");
@@ -1117,25 +1120,38 @@ int main(int argc, char *argv[])
             }
 
             /* if context attributes were given call gta_context_set_attribute()*/
-            if (0 < arguments.ctx_attributes.num) {
+            if (0 < arguments.ctx_attributes.num) {                
 
-                istream_from_buf_t istream_attr_val = { 0 };
-
+                istream_from_buf_t istream_attr_val = { 0 };  
+                myio_ifilestream_t ifilestream_attr_val = { 0 };                    
                 /*printf("personality_enroll set attributes:\n");*/
-                for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
-                    /*printf("     %s: %s\n", arguments.ctx_attributes.p_attr[i].p_type, arguments.ctx_attributes.p_attr[i].p_val);*/
+                if (0 == strncmp(arguments.prof, "org.opcfoundation.ECC-nistP256", strlen("org.opcfoundation.ECC-nistP256"))) {
+                    for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
+                        if(!myio_open_ifilestream(&ifilestream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, &errinfo)) {
+                            printf("Cannot open file %s\n", arguments.ctx_attributes.p_attr[i].p_val);
+                            return EXIT_FAILURE;
+                        }
+                    
+                        if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&ifilestream_attr_val, &errinfo)) {
+                            printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
+                            return EXIT_FAILURE;
+                        }
+                        myio_close_ifilestream(&ifilestream_attr_val, &errinfo);
+                    }
+                } else {
+                    for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
+                        istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
 
-                    istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
-
-                    if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
-                        fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
-                        return EXIT_FAILURE;
+                        if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
+                            fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
+                            return EXIT_FAILURE;
+                        }
                     }
                 }
-
-                free_ctx_attributes(&arguments.ctx_attributes);
             }
-
+            
+            free_ctx_attributes(&arguments.ctx_attributes);
+            
             if (!gta_personality_enroll(h_ctx, (gtaio_ostream_t*)&ostream_enrollment_request, &errinfo)) {
                 fprintf(stderr, "gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
