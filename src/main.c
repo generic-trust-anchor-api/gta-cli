@@ -134,7 +134,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     }
     if((strcmp(argv[1], "--help") == 0)) {
         show_help();
-        return EXIT_FAILURE;
+        exit(0);
     }
     else if (strcmp(argv[1], "identifier_assign") == 0) {
         arguments->func = identifier_assign;
@@ -230,7 +230,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
 
             p_file_attributes = fopen(argv[i]+16, "r");
             if (NULL == p_file_attributes) {
-                printf("Cannot open file %s\n", argv[i]+16);
+                fprintf(stderr, "Cannot open file %s\n", argv[i]+16);
                 return EXIT_FAILURE;
             }
 
@@ -293,7 +293,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
         }
         else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
-            return EXIT_FAILURE;
+            exit(0);
         }
         else {
             fprintf(stderr, "Unknown function argument: %s\n", argv[i]);
@@ -358,7 +358,7 @@ void show_function_help(enum functions func)
             printf("  [--data=FILE]            data to be sealed, if --data is not set data will be read from stdin\n");
             break;
         case unseal_data:
-            printf("Usage: gta-cli suneal_data --options\n");
+            printf("Usage: gta-cli unseal_data --options\n");
             printf("Options:\n");
             printf("  --pers=PERSONALITY_NAME  personality to use for the operation\n");
             printf("  --prof=PROFILE_NAME      profile to use for the operation\n");
@@ -435,7 +435,7 @@ void show_function_help(enum functions func)
             break;
 
         default:
-            printf("Unknown function.\n");
+            fprintf(stderr, "Unknown function.\n");
             show_help();
             break;
     }
@@ -553,7 +553,7 @@ int main(int argc, char *argv[])
     h_inst = gta_instance_init(&inst_params, &errinfo);
 
     if(NULL == h_inst) {
-        printf("h_inst failed with ERROR_CODE %ld\n", errinfo);
+        fprintf(stderr, "h_inst failed with ERROR_CODE %ld\n", errinfo);
         return EXIT_FAILURE;
     }
 
@@ -561,7 +561,7 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < (sizeof(profiles_to_register)/sizeof(profiles_to_register[0])); ++i) {
         if (!basic_sw_provider_gta_register_provider(h_inst, (gtaio_istream_t*)&init_config, profiles_to_register[i],
                  &errinfo)) {
-            printf("basic_sw_provider_gta_register_provider failed with ERROR_CODE %ld\n", errinfo);
+            fprintf(stderr, "basic_sw_provider_gta_register_provider failed with ERROR_CODE %ld\n", errinfo);
             return EXIT_FAILURE;
         }
     }
@@ -574,14 +574,14 @@ int main(int argc, char *argv[])
 
             if(NULL == arguments.id_type || NULL == arguments.id_val)
             {
-                printf("Invalid function arguments\n");
+                fprintf(stderr, "Invalid function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
 
             if(!gta_identifier_assign(h_inst, arguments.id_type, arguments.id_val, &errinfo))
             {
-                printf("gta_identifier_assign failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_identifier_assign failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 
             if(NULL == arguments.id_val || NULL == arguments.pers || NULL == arguments.prof
                || NULL == arguments.app_name) {
-                printf("Invalid function arguments\n");
+                fprintf(stderr, "Invalid function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -603,21 +603,21 @@ int main(int argc, char *argv[])
 
             h_auth_use = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL, &errinfo);
             if(h_auth_use == NULL) {
-                printf("h_auth_use failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "h_auth_use failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
             h_auth_admin = h_auth_use;
 
             if(!gta_personality_create(h_inst, arguments.id_val, arguments.pers, arguments.app_name, arguments.prof,
                     h_auth_use, h_auth_admin, protection_properties, &errinfo)) {
-                printf("gta_personality_create failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_create failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
             break;
         }
         case seal_data: {
             if(NULL == arguments.pers || NULL==arguments.prof) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -634,7 +634,7 @@ int main(int argc, char *argv[])
 
             if (NULL != arguments.data) {
                 if(!myio_open_ifilestream(&istream_data_to_seal, arguments.data, &errinfo)) {
-                    printf("Cannot open file %s\n", arguments.data);
+                    fprintf(stderr, "Cannot open file %s\n", arguments.data);
                     return EXIT_FAILURE;
                 }
             } else {
@@ -645,17 +645,17 @@ int main(int argc, char *argv[])
 
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
             if (NULL == h_ctx) {
-                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if (!gta_seal_data(h_ctx, (gtaio_istream_t*)&istream_data_to_seal, (gtaio_ostream_t*)&ostream_sealed_data,
                     &errinfo)) {
-                printf("gta_seal_data failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_seal_data failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -667,7 +667,7 @@ int main(int argc, char *argv[])
         }
         case unseal_data: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                printf("Invalid function arguments\n");
+                fprintf(stderr, "Invalid function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -682,7 +682,7 @@ int main(int argc, char *argv[])
 
             if (NULL != arguments.data) {
                 if(!myio_open_ifilestream(&istream_sealed_data, arguments.data, &errinfo)) {
-                    printf("Cannot open file %s\n", arguments.data);
+                    fprintf(stderr, "Cannot open file %s\n", arguments.data);
                     return EXIT_FAILURE;
                 }
             } else {
@@ -694,18 +694,18 @@ int main(int argc, char *argv[])
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
             if (NULL == h_ctx) {
-                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if (!gta_unseal_data(h_ctx, (gtaio_istream_t*)&istream_sealed_data,
                     (gtaio_ostream_t*)&ostream_unsealed_data, &errinfo)) {
-                printf("gta_unseal_data failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_unseal_data failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
 
         case personality_enumerate: {
             if(NULL == arguments.id_val) {
-                printf("Invalid function arguments\n");
+                fprintf(stderr, "Invalid function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -768,7 +768,7 @@ int main(int argc, char *argv[])
                 else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
                     pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
                 } else {
-                    printf("Invalid function arguments\n");
+                    fprintf(stderr, "Invalid function arguments\n");
                     show_function_help(arguments.func);
                     return EXIT_FAILURE;
                 }
@@ -785,8 +785,8 @@ int main(int argc, char *argv[])
                     num_of_personality++;
                 }  else {
                     if (errinfo==GTA_ERROR_INVALID_PARAMETER) {
-                        printf("gta_personality_enumerate failed with ERROR_CODE %ld\n", errinfo);
-                        printf("--pers_flag=%s not supported yet\n", arguments.pers_flag);
+                        fprintf(stderr, "gta_personality_enumerate failed with ERROR_CODE %ld\n", errinfo);
+                        fprintf(stderr, "--pers_flag=%s not supported yet\n", arguments.pers_flag);
                     }
 
                     b_loop = false;
@@ -797,7 +797,7 @@ int main(int argc, char *argv[])
         }
         case personality_enumerate_application: {
             if(NULL == arguments.app_name) {
-                printf("Invalid function arguments\n");
+                fprintf(stderr, "Invalid function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -819,7 +819,7 @@ int main(int argc, char *argv[])
                 else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
                     pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
                 } else {
-                    printf("Invalid function arguments\n");
+                    fprintf(stderr, "Invalid function arguments\n");
                     show_function_help(arguments.func);
                     return EXIT_FAILURE;
                 }
@@ -835,8 +835,8 @@ int main(int argc, char *argv[])
                     num_of_personality++;
                 }  else {
                     if (errinfo==GTA_ERROR_INVALID_PARAMETER) {
-                        printf("gta_personality_enumerate failed with ERROR_CODE %ld\n", errinfo);
-                        printf("--pers_flag=%s not supported yet\n", arguments.pers_flag);
+                        fprintf(stderr, "gta_personality_enumerate failed with ERROR_CODE %ld\n", errinfo);
+                        fprintf(stderr, "--pers_flag=%s not supported yet\n", arguments.pers_flag);
                     }
 
                     b_loop = false;
@@ -848,7 +848,7 @@ int main(int argc, char *argv[])
         case personality_add_attribute: {
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type
                || NULL == arguments.attr_name) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -859,7 +859,7 @@ int main(int argc, char *argv[])
 
             if (NULL != arguments.attr_val) {
                 if(!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                    printf("Cannot open file %s\n", arguments.attr_val);
+                    fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
                     return EXIT_FAILURE;
                 }
             } else {
@@ -870,17 +870,17 @@ int main(int argc, char *argv[])
 
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
             if (NULL == h_ctx) {
-                    printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                    fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                     return EXIT_FAILURE;
             }
 
             if (!gta_personality_add_attribute(h_ctx, arguments.attr_type, arguments.attr_name,
                     (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
-                printf("gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -893,7 +893,7 @@ int main(int argc, char *argv[])
         case personality_add_trusted_attribute: {
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type
                || NULL == arguments.attr_name) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -904,7 +904,7 @@ int main(int argc, char *argv[])
 
             if (NULL != arguments.attr_val) {
                 if(!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                    printf("Cannot open file %s\n", arguments.attr_val);
+                    fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
                     return EXIT_FAILURE;
                 }
             } else {
@@ -915,17 +915,17 @@ int main(int argc, char *argv[])
 
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
             if (NULL == h_ctx) {
-                    printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                    fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                     return EXIT_FAILURE;
             }
 
             if (!gta_personality_add_trusted_attribute(h_ctx, arguments.attr_type, arguments.attr_name,
                     (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
-                printf("gta_personality_add_trusted_attribute failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_add_trusted_attribute failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -938,7 +938,7 @@ int main(int argc, char *argv[])
         case personality_get_attribute: {
 
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -952,18 +952,18 @@ int main(int argc, char *argv[])
 
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
             if (NULL == h_ctx) {
-                    printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                    fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                     return EXIT_FAILURE;
             }
 
             if (!gta_personality_get_attribute(h_ctx, arguments.attr_name, (gtaio_ostream_t*)&ostream_attr_value,
                     &errinfo)) {
-                printf("gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -972,7 +972,7 @@ int main(int argc, char *argv[])
         case personality_remove_attribute: {
 
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -982,17 +982,17 @@ int main(int argc, char *argv[])
 
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
             if (NULL == h_ctx) {
-                    printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                    fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                     return EXIT_FAILURE;
             }
 
             if (!gta_personality_remove_attribute(h_ctx, arguments.attr_name, &errinfo)) {
-                printf("gta_personality_remove_attribute failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_remove_attribute failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -1001,7 +1001,7 @@ int main(int argc, char *argv[])
         case personality_attributes_enumerate: {
 
             if(NULL == arguments.pers) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1035,7 +1035,7 @@ int main(int argc, char *argv[])
         }
         case authenticate_data_detached: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1051,7 +1051,7 @@ int main(int argc, char *argv[])
 
              if (arguments.data!=NULL) {
                 if(!myio_open_ifilestream(&istream_data, arguments.data, &errinfo)) {
-                    printf("Cannot open file %s\n", arguments.data);
+                    fprintf(stderr, "Cannot open file %s\n", arguments.data);
                     return EXIT_FAILURE;
                 }
             } else {
@@ -1063,18 +1063,18 @@ int main(int argc, char *argv[])
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
             if (NULL == h_ctx) {
-                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if (!gta_authenticate_data_detached(h_ctx, (gtaio_istream_t*)&istream_data,
                     (gtaio_ostream_t*)&ostream_sealed_data, &errinfo)) {
-                printf("gta_authenticate_data_detached failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_authenticate_data_detached failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -1085,7 +1085,7 @@ int main(int argc, char *argv[])
         }
         case personality_enroll: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or Missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1101,7 +1101,7 @@ int main(int argc, char *argv[])
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
             if (NULL == h_ctx) {
-                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
@@ -1117,7 +1117,7 @@ int main(int argc, char *argv[])
                     istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
 
                     if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
-                        printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
+                        fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
                         return EXIT_FAILURE;
                     }
                 }
@@ -1126,12 +1126,12 @@ int main(int argc, char *argv[])
             }
 
             if (!gta_personality_enroll(h_ctx, (gtaio_ostream_t*)&ostream_enrollment_request, &errinfo)) {
-                printf("gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
