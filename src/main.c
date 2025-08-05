@@ -135,7 +135,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     }
     if((strcmp(argv[1], "--help") == 0)) {
         show_help();
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
     else if (strcmp(argv[1], "identifier_assign") == 0) {
         arguments->func = identifier_assign;
@@ -297,7 +297,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
         }
         else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
-            exit(0);
+            exit(EXIT_SUCCESS);
         }
         else {
             fprintf(stderr, "Unknown function argument: %s\n", argv[i]);
@@ -628,7 +628,7 @@ int main(int argc, char *argv[])
         }
         case seal_data: {
             if(NULL == arguments.pers || NULL==arguments.prof) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -859,7 +859,7 @@ int main(int argc, char *argv[])
         case personality_add_attribute: {
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type
                || NULL == arguments.attr_name) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -904,7 +904,7 @@ int main(int argc, char *argv[])
         case personality_add_trusted_attribute: {
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type
                || NULL == arguments.attr_name) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -949,7 +949,7 @@ int main(int argc, char *argv[])
         case personality_get_attribute: {
 
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -983,7 +983,7 @@ int main(int argc, char *argv[])
         case personality_remove_attribute: {
 
             if(NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1012,7 +1012,7 @@ int main(int argc, char *argv[])
         case personality_attributes_enumerate: {
 
             if(NULL == arguments.pers) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1046,7 +1046,7 @@ int main(int argc, char *argv[])
         }
         case authenticate_data_detached: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1096,7 +1096,7 @@ int main(int argc, char *argv[])
         }
         case personality_enroll: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                fprintf(stderr, "Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
