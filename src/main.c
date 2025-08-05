@@ -1150,7 +1150,7 @@ int main(int argc, char *argv[])
         }
         case personality_remove: {
             if(NULL == arguments.pers || NULL == arguments.prof) {
-                printf("Invalid or Missing function arguments\n");
+                fprintf(stderr, "Invalid or missing function arguments\n");
                 show_function_help(arguments.func);
                 return EXIT_FAILURE;
             }
@@ -1161,17 +1161,17 @@ int main(int argc, char *argv[])
             h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
             if (NULL == h_ctx) {
-                printf("gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if (!gta_personality_remove(h_ctx, &errinfo)) {
-                printf("gta_personality_remove failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_personality_remove failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
             if(!gta_context_close(h_ctx, &errinfo)) {
-                printf("gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
