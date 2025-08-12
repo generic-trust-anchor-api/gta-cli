@@ -99,6 +99,7 @@ struct arguments {
     char *attr_val;
     char* data;
     t_ctx_attributes ctx_attributes;
+    t_ctx_attributes ctx_attributes_bin;
 };
 
 /* Function prototypes */
@@ -127,6 +128,8 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     arguments->data = NULL;
     arguments->ctx_attributes.num = 0;
     arguments->ctx_attributes.p_attr = NULL;
+    arguments->ctx_attributes_bin.num = 0;
+    arguments->ctx_attributes_bin.p_attr = NULL;
 
     /* Parse the arguments */
 
@@ -271,6 +274,27 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
             }
             fclose(p_file_attributes);
 
+        } else if (strncmp(argv[i], "--ctx_attr_bin", 14) == 0) {
+            t_attribute* p_new_attribute = NULL;
+            i++;
+            if (NULL == argv[i]) {
+                fprintf(stderr, "Missing function arguments\n");
+                show_function_help(arguments->func);
+                return EXIT_FAILURE;
+            }
+
+            /* create new attribute in list of attributes
+               call parsing function to set attr_type and attr_val to attribute */
+
+            ++arguments->ctx_attributes_bin.num;
+            p_new_attribute= realloc(arguments->ctx_attributes_bin.p_attr, arguments->ctx_attributes_bin.num*sizeof(t_attribute));
+            if (NULL != p_new_attribute) {
+                arguments->ctx_attributes_bin.p_attr = (t_attribute*)p_new_attribute;
+                if (EXIT_SUCCESS != parse_attributes(argv[i],&(arguments->ctx_attributes_bin.p_attr[arguments->ctx_attributes_bin.num-1]))) {
+                    fprintf(stderr, "Missing function arguments\n");
+                    return EXIT_FAILURE;
+                }
+            }
         } else if (strncmp(argv[i], "--ctx_attr", 10) == 0) {
             t_attribute* p_new_attribute = NULL;
             i++;
@@ -434,12 +458,15 @@ void show_function_help(enum functions func)
         case personality_enroll:
             printf("Usage: gta-cli personality_enroll --options\n");
             printf("Options:\n");
-            printf("  --pers=PERSONALITY_NAME               personality for which an enrollment request should be created\n");
-            printf("  --prof=PROFILE_NAME                   profile defining which kind of enrollment request should be created\n");
-            printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
-            printf("                                        if a profile defines ATTR_VAL to be presented as binary data ATTR_VAL should indicate a binary file\n");
-            printf("  [(--ctx_attr_file=FILE)...]           extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
-            printf("                                        if a profile defines ATTR_VAL to be presented as binary data ATTR_VAL should indicate a binary file\n");
+            printf("  --pers=PERSONALITY_NAME                   personality for which an enrollment request should be created\n");
+            printf("  --prof=PROFILE_NAME                       profile defining which kind of enrollment request should be created\n");
+            printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]      extra attributes required to create the enrollment as described in the enrollment profile\n");
+            printf("                                            ATTR_VAL is interpreted as string\n");
+            printf("  [(--ctx_attr_bin ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
+            printf("                                            ATTR_VAL is interpreted path to a binary file\n");
+            printf("  [(--ctx_attr_file=FILE)...]               extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
+            printf("                                            ATTR_VAL is interpreted as string\n");
+            
             break;
         case personality_remove:
             printf("Usage: gta-cli personality_remove --options\n");
@@ -1120,37 +1147,41 @@ int main(int argc, char *argv[])
             }
 
             /* if context attributes were given call gta_context_set_attribute()*/
-            if (0 < arguments.ctx_attributes.num) {                
+            /* context attributes given as binary files */
+            if (0 < arguments.ctx_attributes_bin.num) {           
 
+                myio_ifilestream_t ifilestream_attr_val = { 0 };                                   
+            
+                for (size_t i = 0; i < arguments.ctx_attributes_bin.num; i++) {
+                    if(!myio_open_ifilestream(&ifilestream_attr_val, arguments.ctx_attributes_bin.p_attr[i].p_val, &errinfo)) {
+                        printf("Cannot open file %s\n", arguments.ctx_attributes_bin.p_attr[i].p_val);
+                        return EXIT_FAILURE;
+                    }
+                
+                    if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes_bin.p_attr[i].p_type, (gtaio_istream_t*)&ifilestream_attr_val, &errinfo)) {
+                        printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
+                        return EXIT_FAILURE;
+                    }
+                    myio_close_ifilestream(&ifilestream_attr_val, &errinfo);
+                }             
+            } 
+
+            /* context attributes given as strings */
+            if (0 < arguments.ctx_attributes.num) {       
                 istream_from_buf_t istream_attr_val = { 0 };  
-                myio_ifilestream_t ifilestream_attr_val = { 0 };                    
-                /*printf("personality_enroll set attributes:\n");*/
-                if (0 == strncmp(arguments.prof, "org.opcfoundation.ECC-nistP256", strlen("org.opcfoundation.ECC-nistP256"))) {
-                    for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
-                        if(!myio_open_ifilestream(&ifilestream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, &errinfo)) {
-                            printf("Cannot open file %s\n", arguments.ctx_attributes.p_attr[i].p_val);
-                            return EXIT_FAILURE;
-                        }
-                    
-                        if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&ifilestream_attr_val, &errinfo)) {
-                            printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
-                            return EXIT_FAILURE;
-                        }
-                        myio_close_ifilestream(&ifilestream_attr_val, &errinfo);
-                    }
-                } else {
-                    for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
-                        istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
+            
+                for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
+                    istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
 
-                        if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
-                            fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
-                            return EXIT_FAILURE;
-                        }
+                    if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes.p_attr[i].p_type, (gtaio_istream_t*)&istream_attr_val, &errinfo)) {
+                        fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
+                        return EXIT_FAILURE;
                     }
-                }
+                }            
             }
             
             free_ctx_attributes(&arguments.ctx_attributes);
+            free_ctx_attributes(&arguments.ctx_attributes_bin);
             
             if (!gta_personality_enroll(h_ctx, (gtaio_ostream_t*)&ostream_enrollment_request, &errinfo)) {
                 fprintf(stderr, "gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
