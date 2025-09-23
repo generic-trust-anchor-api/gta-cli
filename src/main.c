@@ -462,8 +462,8 @@ void show_function_help(enum functions func)
             printf("  --prof=PROFILE_NAME                       profile defining which kind of enrollment request should be created\n");
             printf("  [(--ctx_attr ATTR_TYPE=ATTR_VAL)...]      extra attributes required to create the enrollment as described in the enrollment profile\n");
             printf("                                            ATTR_VAL is interpreted as string\n");
-            printf("  [(--ctx_attr_bin ATTR_TYPE=ATTR_VAL)...]  extra attributes required to create the enrollment as described in the enrollment profile\n");
-            printf("                                            ATTR_VAL is interpreted path to a binary file\n");
+            printf("  [(--ctx_attr_bin ATTR_TYPE=FILE)...]      extra attributes required to create the enrollment as described in the enrollment profile\n");
+            printf("                                            FILE is interpreted as path to a binary file with the attribute value\n");
             printf("  [(--ctx_attr_file=FILE)...]               extra attributes provided in a file with ATTR_TYPE=ATTR_VAL pairs\n");
             printf("                                            ATTR_VAL is interpreted as string\n");
             
