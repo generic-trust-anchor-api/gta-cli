@@ -1156,28 +1156,28 @@ int main(int argc, char *argv[])
 
             /* if context attributes were given call gta_context_set_attribute()*/
             /* context attributes given as binary files */
-            if (0 < arguments.ctx_attributes_bin.num) {           
+            if (0 < arguments.ctx_attributes_bin.num) {
 
-                myio_ifilestream_t ifilestream_attr_val = { 0 };                                   
-            
+                myio_ifilestream_t ifilestream_attr_val = { 0 };
+
                 for (size_t i = 0; i < arguments.ctx_attributes_bin.num; i++) {
                     if(!myio_open_ifilestream(&ifilestream_attr_val, arguments.ctx_attributes_bin.p_attr[i].p_val, &errinfo)) {
                         printf("Cannot open file %s\n", arguments.ctx_attributes_bin.p_attr[i].p_val);
                         return EXIT_FAILURE;
                     }
-                
+
                     if (!gta_context_set_attribute(h_ctx, arguments.ctx_attributes_bin.p_attr[i].p_type, (gtaio_istream_t*)&ifilestream_attr_val, &errinfo)) {
                         printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
                         return EXIT_FAILURE;
                     }
                     myio_close_ifilestream(&ifilestream_attr_val, &errinfo);
-                }             
-            } 
+                }
+            }
 
             /* context attributes given as strings */
-            if (0 < arguments.ctx_attributes.num) {       
-                istream_from_buf_t istream_attr_val = { 0 };  
-            
+            if (0 < arguments.ctx_attributes.num) {
+                istream_from_buf_t istream_attr_val = { 0 };
+
                 for (size_t i = 0; i < arguments.ctx_attributes.num; i++) {
                     istream_from_buf_init(&istream_attr_val, arguments.ctx_attributes.p_attr[i].p_val, strlen(arguments.ctx_attributes.p_attr[i].p_val)+1);
 
@@ -1185,12 +1185,12 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
                         return EXIT_FAILURE;
                     }
-                }            
+                }
             }
-            
+
             free_ctx_attributes(&arguments.ctx_attributes);
             free_ctx_attributes(&arguments.ctx_attributes_bin);
-            
+
             if (!gta_personality_enroll(h_ctx, (gtaio_ostream_t*)&ostream_enrollment_request, &errinfo)) {
                 fprintf(stderr, "gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
