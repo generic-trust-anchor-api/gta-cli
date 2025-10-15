@@ -6,7 +6,7 @@
 #;**********************************************************************;
 
 name: CI
-on: 
+on:
   [workflow_dispatch, pull_request]
 
 jobs:
@@ -44,3 +44,14 @@ jobs:
         run: |
           sudo ldconfig
           cd test && ./test_cli.sh
+
+  style-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gta-cli
+        uses: actions/checkout@v4
+      - name: Style check
+        run: |
+          FILES=$(find . -name '*.c' -o -name '*.h')
+          clang-format --dry-run --Werror $FILES
+
