@@ -54,13 +54,13 @@ fi
 
 ####
 # prepare the tests by calling basic gta api calls to create a suitable personality for the opc ecc profile
-echo "gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED"
-gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED
+echo "gta-cli identifier_assign --id_type=org.opcfoundation.application_instance_uri --id_val=urn:mycompany.com:2024-10:myproduct:myappid?cg=DefaultApplication"
+gta-cli identifier_assign --id_type=org.opcfoundation.application_instance_uri --id_val=urn:mycompany.com:2024-10:myproduct:myappid?cg=DefaultApplication
 assert_success "identifier_assign"
 echo ""
 
-echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256"
-gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256
+echo "gta-cli personality_create --id_val=urn:mycompany.com:2024-10:myproduct:myappid?cg=DefaultApplication --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256"
+gta-cli personality_create --id_val=urn:mycompany.com:2024-10:myproduct:myappid?cg=DefaultApplication --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256
 assert_success "personality_create"
 echo ""
 
