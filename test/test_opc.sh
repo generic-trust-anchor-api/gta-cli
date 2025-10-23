@@ -4,6 +4,9 @@
 # **********************************************************************/
 
 TEST_DATA_DIR=./test_data
+PERS_OPC_ECC="urn:manufacturer.com:2024-10:myproduct:SN51235?cg=DefaultApplication&ct=EccNistP256&ix=1"
+ID_TYPE="org.opcfoundation.application_instance_uri"
+ID_VALUE="urn:mycompany.com:2024-10:myproduct:myappid?cg=DefaultApplication"
 
 echo "test enroll message flow for the opc ecc profile"
 
@@ -54,22 +57,22 @@ fi
 
 ####
 # prepare the tests by calling basic gta api calls to create a suitable personality for the opc ecc profile
-echo "gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED"
-gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED
+echo "gta-cli identifier_assign --id_type=$ID_TYPE --id_val=$ID_VALUE"
+gta-cli identifier_assign --id_type=$ID_TYPE --id_val=$ID_VALUE
 assert_success "identifier_assign"
 echo ""
 
-echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256"
-gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=LDevID --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256
+echo "gta-cli personality_create --id_val=$ID_VALUE --pers=$PERS_OPC_ECC --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256"
+gta-cli personality_create --id_val=$ID_VALUE --pers=$PERS_OPC_ECC --app_name=gta-cli --prof=org.opcfoundation.ECC-nistP256
 assert_success "personality_create"
 echo ""
 
 ####
 # tests for personality_enroll with different arguments
 # 1. set subject and subjectAltName in csr by using argument --ctx_attr_bin
-echo "gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" --ctx_attr_bin org.opcfoundation.csr.subjectAltName="$TEST_DATA_DIR/subjectAltName.der" > $TEST_DATA_DIR/ldevid.csr"
-gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" --ctx_attr_bin org.opcfoundation.csr.subjectAltName="$TEST_DATA_DIR/subjectAltName.der" > $TEST_DATA_DIR/ldevid.csr
-assert_success "personality_enroll"cd ..
+echo "gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" --ctx_attr_bin org.opcfoundation.csr.subjectAltName="$TEST_DATA_DIR/subjectAltName.der" > $TEST_DATA_DIR/ldevid.csr"
+gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" --ctx_attr_bin org.opcfoundation.csr.subjectAltName="$TEST_DATA_DIR/subjectAltName.der" > $TEST_DATA_DIR/ldevid.csr
+assert_success "personality_enroll"
 echo ""
 
 # get LDevID certificate from dummy ca by using csr created with personality_enroll
@@ -86,8 +89,8 @@ echo ""
 # 2. set only subject in csr by using argument --ctx_attr_bin
 # subjectAltName should be taken internally from the identifier of the personality
 echo "test personality_enroll with setting subjectAltName internally"
-echo "gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" > $TEST_DATA_DIR/test1.csr"
-gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" > $TEST_DATA_DIR/test1.csr
+echo "gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" > $TEST_DATA_DIR/test1.csr"
+gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --ctx_attr_bin org.opcfoundation.csr.subject="$TEST_DATA_DIR/subject.der" > $TEST_DATA_DIR/test1.csr
 assert_success "personality_enroll"
 echo ""
 
@@ -104,8 +107,8 @@ echo ""
 # 3. don't use argument --ctx_attr_bin
 # subject should remain empty and subjectAltName should be taken internally from the identifier of the personality
 echo "test personality_enroll without subject and with setting subjectAltName internally"
-echo "gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 > $TEST_DATA_DIR/test2.csr"
-gta-cli personality_enroll --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 > $TEST_DATA_DIR/test2.csr
+echo "gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 > $TEST_DATA_DIR/test2.csr"
+gta-cli personality_enroll --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 > $TEST_DATA_DIR/test2.csr
 assert_success "personality_enroll"
 echo ""
 
@@ -121,8 +124,8 @@ echo ""
 
 ####
 # finish enrollment by adding created LDevID certificate to personality
-echo "gta-cli personality_add_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name="LDevID EE" --attr_val=$TEST_DATA_DIR/ldevid_ee.crt"
-gta-cli personality_add_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name="LDevID EE" --attr_val=$TEST_DATA_DIR/ldevid_ee.crt
+echo "gta-cli personality_add_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name="LDevID EE" --attr_val=$TEST_DATA_DIR/ldevid_ee.crt"
+gta-cli personality_add_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name="LDevID EE" --attr_val=$TEST_DATA_DIR/ldevid_ee.crt
 assert_success "personality_add_attribute"
 echo ""
 
@@ -149,21 +152,21 @@ gta-cli personality_enumerate_application --app_name=gta-cli
 assert_success "personality_enumerate_application"
 echo ""
 
-echo "gta-cli personality_attributes_enumerate --pers=LDevID"
-gta-cli personality_attributes_enumerate --pers=LDevID
+echo "gta-cli personality_attributes_enumerate --pers=$PERS_OPC_ECC"
+gta-cli personality_attributes_enumerate --pers=$PERS_OPC_ECC
 assert_success "personality_attributes_enumerate"
 echo ""
 
-echo "gta-cli personality_get_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt"
-gta-cli personality_get_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt
+echo "gta-cli personality_get_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt"
+gta-cli personality_get_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt
 assert_success "personality_get_attribute"
 echo ""
 
 ####
 # test using LDevID personality for signing and verifying signed data with public key of enrolled LDevID certificate
 echo "test sign and verify data"
-echo "gta-cli authenticate_data_detached --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --data=$TEST_DATA_DIR/plain.txt > $TEST_DATA_DIR/signature.bin"
-gta-cli authenticate_data_detached --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --data=$TEST_DATA_DIR/plain.txt > $TEST_DATA_DIR/signature.bin
+echo "gta-cli authenticate_data_detached --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --data=$TEST_DATA_DIR/plain.txt > $TEST_DATA_DIR/signature.bin"
+gta-cli authenticate_data_detached --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --data=$TEST_DATA_DIR/plain.txt > $TEST_DATA_DIR/signature.bin
 assert_success "authenticate_data_detached"
 echo ""
 
@@ -178,14 +181,14 @@ echo ""
 
 ####
 # test remove personality
-echo "gta-cli personality_remove_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name=LDevID EE"
-gta-cli personality_remove_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE"
+echo "gta-cli personality_remove_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name=LDevID EE"
+gta-cli personality_remove_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE"
 assert_success "personality_remove_attribute"
 echo ""
 
 # validate successful removal of personality
-echo "gta-cli personality_get_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt"
-gta-cli personality_get_attribute --pers=LDevID --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt
+echo "gta-cli personality_get_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt"
+gta-cli personality_get_attribute --pers=$PERS_OPC_ECC --prof=org.opcfoundation.ECC-nistP256 --attr_name="LDevID EE" > $TEST_DATA_DIR/ldevid_ee.crt
 assert_error "personality_get_attribute"
 echo ""
 
