@@ -1,2 +1,0 @@
-org.opcfoundation.csr.subject=./test_data/subject.der
-org.opcfoundation.csr.subjectAltName=./test_data/subjectAltName.der
