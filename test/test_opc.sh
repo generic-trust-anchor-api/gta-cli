@@ -1,7 +1,6 @@
-#/* SPDX-License-Identifier: MPL-2.0 */
-#/**********************************************************************
-# * Copyright (c) 2025, Siemens AG
-# **********************************************************************/
+# SPDX-FileCopyrightText: Copyright 2025 Siemens
+#
+# SPDX-License-Identifier: Apache-2.0
 
 TEST_DATA_DIR=./test_data
 PERS_OPC_ECC="urn:manufacturer.com:2024-10:myproduct:SN51235?cg=DefaultApplication&ct=EccNistP256&ix=1"
