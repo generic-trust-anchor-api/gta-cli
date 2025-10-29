@@ -70,6 +70,8 @@ enum functions {
     authenticate_data_detached,
     personality_enroll,
     personality_remove,
+    devicestate_transition,
+    devicestate_recede,
     FUNC_UNKNOWN
 };
 
@@ -106,6 +108,7 @@ struct arguments {
                                             one attribute consists of a pair ATTR_TYPE=FILE
                                             FILE is the path to binary file with
                                             the actual attribute value as binary */
+    size_t *owner_lock_count;
 };
 
 /* Function prototypes */
@@ -136,6 +139,7 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     arguments->ctx_attributes.p_attr = NULL;
     arguments->ctx_attributes_bin.num = 0;
     arguments->ctx_attributes_bin.p_attr = NULL;
+    arguments->owner_lock_count = NULL;
 
     /* Parse the arguments */
 
@@ -192,6 +196,13 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
     }
     else if (strcmp(argv[1], "personality_remove") == 0) {
         arguments->func = personality_remove;
+    }
+    else if (strcmp(argv[1], "devicestate_transition") == 0) {
+        arguments->func = devicestate_transition;
+    }
+    else if (strcmp(argv[1], "devicestate_recede") == 0) {
+        arguments->func = devicestate_recede;
+        b_options = false;
     }
     else {
         fprintf(stderr, "Unknown argument: %s\n", argv[1]);
@@ -329,6 +340,28 @@ int parse_args(int argc, char *argv[], struct arguments *arguments)
                 return EXIT_FAILURE;
             }
         }
+        else if (strncmp(argv[i], "--owner_lock_count=", 19) == 0) {
+            char * p_endptr = NULL;
+            /* Check if argument is missing (NULL-terminater after '=') */
+            if (19 == strnlen(argv[i], 20)) {
+                fprintf(stderr, "Missing function argument\n");
+                return EXIT_FAILURE;
+            }
+
+            arguments->owner_lock_count = (size_t *)malloc(sizeof(size_t));
+            if (NULL == arguments->owner_lock_count) {
+                fprintf(stderr, "Memory allocation error\n");
+                return EXIT_FAILURE;
+            }
+
+            (*arguments->owner_lock_count) = strtoul(argv[i]+19, &p_endptr, 10);
+
+            if ('\0' != *p_endptr) {
+                fprintf(stderr, "Invalid input: '%s' is not a valid numeric value\n", argv[i]+19);
+                free(arguments->owner_lock_count);
+                return EXIT_FAILURE;
+            }
+        }
         else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
             exit(EXIT_SUCCESS);
@@ -363,6 +396,8 @@ void show_help()
     printf("  authenticate_data_detached         calculate a cryptographic seal for the provided data according to the given profile and personality\n");
     printf("  personality_enroll                 create an enrollment request for a personality according to the given profile\n");
     printf("  personality_remove                 remove a personality\n");
+    printf("  devicestate_transition             advance into a new transition device state (push)\n");
+    printf("  devicestate_recede                 recede into the previous transition device state (pop)\n");
 
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register)/sizeof(profiles_to_register[0])); ++i) {
@@ -481,6 +516,16 @@ void show_function_help(enum functions func)
             printf("Options:\n");
             printf("  --pers=PERSONALITY_NAME   personality which should be deleted\n");
             printf("  --prof=PROFILE_NAME       profile that should be used deleting the personality\n");
+            break;
+        case devicestate_transition:
+            printf("Usage: gta-cli devicestate_transition --options\n");
+            printf("Options:\n");
+            printf("  --owner_lock_count=OWNER_LOCK_COUNT   counter to restrict the assignment of recede access policies\n");
+            printf("                                        with authentication by physical access for future device states\n");
+            break;
+        case devicestate_recede:
+            printf("Usage: gta-cli devicestate_recede\n");
+            printf("No options\n");
             break;
 
         default:
@@ -1227,6 +1272,52 @@ int main(int argc, char *argv[])
 
             if(!gta_context_close(h_ctx, &errinfo)) {
                 fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+                return EXIT_FAILURE;
+            }
+
+            break;
+        }
+        case devicestate_transition: {
+
+            if(NULL == arguments.owner_lock_count) {
+                fprintf(stderr, "Invalid or missing function arguments\n");
+                show_function_help(arguments.func);
+                return EXIT_FAILURE;
+            }
+
+            gta_errinfo_t errinfo = 0;
+            gta_access_policy_handle_t h_auth_recede = GTA_HANDLE_INVALID;
+
+            h_auth_recede = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_PHYSICAL_PRESENCE_TOKEN, &errinfo);
+
+            if (GTA_HANDLE_INVALID == h_auth_recede) {
+                fprintf(stderr, "gta_access_policy_simple failed with ERROR_CODE %ld\n", errinfo);
+                free(arguments.owner_lock_count);
+                return EXIT_FAILURE;
+            }
+
+            if (!gta_devicestate_transition(h_inst, h_auth_recede, *arguments.owner_lock_count, &errinfo)) {
+                fprintf(stderr, "gta_devicestate_transition failed with ERROR_CODE %ld\n", errinfo);
+                free(arguments.owner_lock_count);
+                return EXIT_FAILURE;
+            }
+            free(arguments.owner_lock_count);
+
+            break;
+        }
+
+        case devicestate_recede: {
+
+            gta_errinfo_t errinfo = 0;
+            gta_access_token_t physical_presence_token;
+            if (!gta_access_token_get_physical_presence(h_inst, physical_presence_token, &errinfo))
+            {
+                fprintf(stderr, "gta_access_token_get_physical_presence failed with ERROR_CODE %ld\n", errinfo);
+                return EXIT_FAILURE;
+            }
+
+            if (!gta_devicestate_recede(h_inst, physical_presence_token, &errinfo)) {
+                fprintf(stderr, "gta_devicestate_recede failed with ERROR_CODE %ld\n", errinfo);
                 return EXIT_FAILURE;
             }
 
