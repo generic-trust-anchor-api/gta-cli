@@ -37,6 +37,23 @@ assert_error () {
   fi
 }
 
+echo "gta-cli devicestate_recede"
+gta-cli devicestate_recede
+assert_success "devicestate_recede"
+
+echo "gta-cli devicestate_transition --owner_lock_count=5"
+gta-cli devicestate_transition --owner_lock_count=5
+assert_success "devicestate_transition"
+
+echo "gta-cli devicestate_recede"
+gta-cli devicestate_recede
+assert_success "devicestate_recede"
+
+echo "gta-cli devicestate_transition --owner_lock_count=5"
+gta-cli devicestate_transition --owner_lock_count=5
+assert_success "devicestate_transition"
+echo ""
+
 echo "gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED"
 gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE-AD-BE-EF-FE-ED
 assert_success "identifier_assign"
@@ -179,6 +196,35 @@ assert_success "personality_remove"
 # validate successful removal of personality
 gta-cli personality_enumerate --id_val=DE-AD-BE-EF-FE-ED | grep "test_pers_rsa_default_delete"
 assert_error "personality_remove"
+echo ""
+
+echo "gta-cli devicestate_transition --owner_lock_count=5"
+gta-cli devicestate_transition --owner_lock_count=5
+assert_success "devicestate_transition"
+
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_devicestates --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
+gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_devicestates --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection
+assert_success "personality_create"
+
+echo "gta-cli personality_enumerate_application --app_name=gta-cli"
+gta-cli personality_enumerate_application --app_name=gta-cli
+assert_success "personality_enumerate_application"
+
+echo "gta-cli devicestate_recede"
+gta-cli devicestate_recede
+assert_success "devicestate_recede"
+
+echo "gta-cli personality_enumerate_application --app_name=gta-cli"
+gta-cli personality_enumerate_application --app_name=gta-cli
+assert_success "personality_enumerate_application"
+
+echo "gta-cli devicestate_recede"
+gta-cli devicestate_recede
+assert_success "devicestate_recede"
+
+echo "gta-cli personality_enumerate_application --app_name=gta-cli"
+gta-cli personality_enumerate_application --app_name=gta-cli
+assert_success "personality_enumerate_application"
 echo ""
 
 num_tests=$(($num_ok+$num_fails))
