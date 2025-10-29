@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2025 Siemens
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import sys
 import os
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature

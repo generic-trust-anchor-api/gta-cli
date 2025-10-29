@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2025 Siemens
+#
+# SPDX-License-Identifier: Apache-2.0
+
 build
 test/gta_state
 test/test_data/*.crt
