@@ -3,58 +3,44 @@
  * Copyright (c) 2025, Siemens AG
  **********************************************************************/
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
+#include "streams.h"
 
 #include <gta_api/gta_api.h>
 #include <gta_api/util/gta_memset.h>
-#include "streams.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*
  * myio_ifilestream reference implementation
  */
 
-GTA_DEFINE_FUNCTION(bool, myio_close_ifilestream,
-(
-    myio_ifilestream_t * istream,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(bool, myio_close_ifilestream, (myio_ifilestream_t * istream, gta_errinfo_t * p_errinfo))
 {
     fclose(istream->file);
-    gta_memset(istream, sizeof(myio_ifilestream_t),
-            0, sizeof(myio_ifilestream_t));
+    gta_memset(istream, sizeof(myio_ifilestream_t), 0, sizeof(myio_ifilestream_t));
     return true;
 }
 
-GTA_DEFINE_FUNCTION(size_t, myio_ifilestream_read,
-(
-    myio_ifilestream_t * istream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(
+    size_t,
+    myio_ifilestream_read,
+    (myio_ifilestream_t * istream, char * data, size_t len, gta_errinfo_t * p_errinfo))
 {
     return fread(data, sizeof(char), len, istream->file);
 }
 
-GTA_DEFINE_FUNCTION(bool, myio_ifilestream_eof,
-(
-    myio_ifilestream_t * istream,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(bool, myio_ifilestream_eof, (myio_ifilestream_t * istream, gta_errinfo_t * p_errinfo))
 {
     return feof(istream->file) != 0 ? true : false;
 }
 
-GTA_DEFINE_FUNCTION(bool, myio_open_ifilestream,
-(
-    myio_ifilestream_t * istream,
-    const char * filename,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(
+    bool,
+    myio_open_ifilestream,
+    (myio_ifilestream_t * istream, const char * filename, gta_errinfo_t * p_errinfo))
 {
     bool ret = false;
     FILE * file = NULL;
@@ -71,8 +57,7 @@ GTA_DEFINE_FUNCTION(bool, myio_open_ifilestream,
         istream->eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
         istream->file = file;
         ret = true;
-    }
-    else {
+    } else {
         *p_errinfo = GTA_ERROR_INVALID_PARAMETER;
     }
 
@@ -83,46 +68,34 @@ GTA_DEFINE_FUNCTION(bool, myio_open_ifilestream,
  * myio_ofilestream reference implementation
  */
 
-GTA_DEFINE_FUNCTION(bool, myio_close_ofilestream,
-(
-    myio_ofilestream_t * ostream,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(bool, myio_close_ofilestream, (myio_ofilestream_t * ostream, gta_errinfo_t * p_errinfo))
 {
     fclose(ostream->file);
-    gta_memset(ostream, sizeof(myio_ofilestream_t),
-            0, sizeof(myio_ofilestream_t));
+    gta_memset(ostream, sizeof(myio_ofilestream_t), 0, sizeof(myio_ofilestream_t));
     return true;
 }
 
-GTA_DEFINE_FUNCTION(size_t, myio_ofilestream_write,
-(
-    myio_ofilestream_t * ostream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(
+    size_t,
+    myio_ofilestream_write,
+    (myio_ofilestream_t * ostream, char * data, size_t len, gta_errinfo_t * p_errinfo))
 {
     return fwrite(data, sizeof(char), len, ostream->file);
 }
 
-GTA_DEFINE_FUNCTION(bool, myio_ofilestream_finish,
-(
-    myio_ofilestream_t * ostream,
-    gta_errinfo_t errinfo,
-    gta_errinfo_t * p_errinfo
-    ))
+GTA_DEFINE_FUNCTION(
+    bool,
+    myio_ofilestream_finish,
+    (myio_ofilestream_t * ostream, gta_errinfo_t errinfo, gta_errinfo_t * p_errinfo))
 {
     /* todo: what to do with errinfo? */
     return true;
 }
 
-GTA_DEFINE_FUNCTION(bool, myio_open_ofilestream,
-(
-    myio_ofilestream_t * ostream,
-    const char * filename,
-    gta_errinfo_t * p_errinfo
-))
+GTA_DEFINE_FUNCTION(
+    bool,
+    myio_open_ofilestream,
+    (myio_ofilestream_t * ostream, const char * filename, gta_errinfo_t * p_errinfo))
 {
     bool ret = false;
     FILE * file = NULL;
@@ -139,8 +112,7 @@ GTA_DEFINE_FUNCTION(bool, myio_open_ofilestream,
         ostream->finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
         ostream->file = file;
         ret = true;
-    }
-    else {
+    } else {
         *p_errinfo = GTA_ERROR_INVALID_PARAMETER;
     }
 
@@ -148,13 +120,7 @@ GTA_DEFINE_FUNCTION(bool, myio_open_ofilestream,
 }
 
 /* gtaio_istream implementation to read from a temporary buffer */
-size_t istream_from_buf_read
-(
-    istream_from_buf_t * istream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-)
+size_t istream_from_buf_read(istream_from_buf_t * istream, char * data, size_t len, gta_errinfo_t * p_errinfo)
 {
     /* Check how many bytes are still available in data buffer */
     size_t bytes_available = istream->buf_size - istream->buf_pos;
@@ -172,22 +138,13 @@ size_t istream_from_buf_read
     return len;
 }
 
-bool istream_from_buf_eof
-(
-    istream_from_buf_t * istream,
-    gta_errinfo_t * p_errinfo
-)
+bool istream_from_buf_eof(istream_from_buf_t * istream, gta_errinfo_t * p_errinfo)
 {
     /* Return true if we are at the end of the buffer */
     return (istream->buf_pos == istream->buf_size);
 }
 
-void istream_from_buf_init
-(
-    istream_from_buf_t * istream,
-    const char * buf,
-    size_t buf_size
-)
+void istream_from_buf_init(istream_from_buf_t * istream, const char * buf, size_t buf_size)
 {
     istream->read = (gtaio_stream_read_t)istream_from_buf_read;
     istream->eof = (gtaio_stream_eof_t)istream_from_buf_eof;
@@ -196,23 +153,10 @@ void istream_from_buf_init
     istream->buf_pos = 0;
 }
 
-bool ostream_finish(
-    gtaio_ostream_t * ostream,
-    gta_errinfo_t errinfo,
-    gta_errinfo_t * p_errinfo
-)
-{
-    return true;
-}
+bool ostream_finish(gtaio_ostream_t * ostream, gta_errinfo_t errinfo, gta_errinfo_t * p_errinfo) { return true; }
 
 /* gtaio_ostream implementation to write the output to a temporary buffer */
-size_t ostream_to_buf_write
-(
-    ostream_to_buf_t * ostream,
-    const char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-)
+size_t ostream_to_buf_write(ostream_to_buf_t * ostream, const char * data, size_t len, gta_errinfo_t * p_errinfo)
 {
     /* Check how many bytes are still available in data buffer */
     size_t bytes_available = ostream->buf_size - ostream->buf_pos;
@@ -229,12 +173,7 @@ size_t ostream_to_buf_write
     return len;
 }
 
-void ostream_to_buf_init
-(
-    ostream_to_buf_t * ostream,
-    char * buf,
-    size_t buf_size
-)
+void ostream_to_buf_init(ostream_to_buf_t * ostream, char * buf, size_t buf_size)
 {
     ostream->write = (gtaio_stream_write_t)ostream_to_buf_write;
     ostream->finish = ostream_finish;
