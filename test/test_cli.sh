@@ -1,7 +1,6 @@
-#/* SPDX-License-Identifier: Apache-2.0 */
-#/**********************************************************************
-# * Copyright (c) 2025, Siemens AG
-# **********************************************************************/
+# SPDX-FileCopyrightText: Copyright 2025 Siemens
+#
+# SPDX-License-Identifier: Apache-2.0
 
 echo "clean gta_state directory..."
 if [[ -z "${GTA_STATE_DIRECTORY}" ]]; then

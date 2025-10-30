@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2025 Siemens
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Generic Trust Anchor API - Command Line Interface
 
 ## Introduction

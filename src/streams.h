@@ -1,12 +1,13 @@
-/* SPDX-License-Identifier: Apache-2.0 */
-/**********************************************************************
- * Copyright (c) 2025, Siemens AG
- **********************************************************************/
+/*
+ * SPDX-FileCopyrightText: Copyright 2025 Siemens
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef GTA_FILESTREAM_H
 #define GTA_FILESTREAM_H
 
-#if defined (_MSC_VER) && (_MSC_VER > 1000)
+#if defined(_MSC_VER) && (_MSC_VER > 1000)
 /* microsoft */
 /* Specifies that the file will be included (opened) only
    once by the compiler in a build. This can reduce build
@@ -16,17 +17,15 @@
 #endif
 
 #if defined(__cplusplus)
-   /* *INDENT-OFF* */
-extern "C"
-{
-    /* *INDENT-ON* */
+/* *INDENT-OFF* */
+extern "C" {
+/* *INDENT-ON* */
 #endif
 
 /*---------------------------------------------------------------------*/
 
-#include <stdio.h>
-
 #include <gta_api/gta_api.h>
+#include <stdio.h>
 
 /*
  * myio_ifilestream reference implementation for gta_istream interface
@@ -42,32 +41,19 @@ typedef struct myio_ifilestream {
     FILE * file;
 } myio_ifilestream_t;
 
-GTA_DECLARE_FUNCTION(bool, myio_close_ifilestream,
-(
-    myio_ifilestream_t * istream,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(bool, myio_close_ifilestream, (myio_ifilestream_t * istream, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(size_t, myio_ifilestream_read,
-(
-    myio_ifilestream_t * istream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(
+    size_t,
+    myio_ifilestream_read,
+    (myio_ifilestream_t * istream, char * data, size_t len, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(bool, myio_ifilestream_eof,
-(
-    myio_ifilestream_t * istream,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(bool, myio_ifilestream_eof, (myio_ifilestream_t * istream, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(bool, myio_open_ifilestream,
-(
-    myio_ifilestream_t * istream,
-    const char * filename,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(
+    bool,
+    myio_open_ifilestream,
+    (myio_ifilestream_t * istream, const char * filename, gta_errinfo_t * p_errinfo));
 
 /*
  * myio_ofilestream reference implementation for gta_istream interface
@@ -84,33 +70,22 @@ typedef struct myio_ofilestream {
     FILE * file;
 } myio_ofilestream_t;
 
-GTA_DECLARE_FUNCTION(bool, myio_close_ofilestream,
-(
-    myio_ofilestream_t * ostream,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(bool, myio_close_ofilestream, (myio_ofilestream_t * ostream, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(size_t, myio_ofilestream_write,
-(
-    myio_ofilestream_t * ostream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(
+    size_t,
+    myio_ofilestream_write,
+    (myio_ofilestream_t * ostream, char * data, size_t len, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(bool, myio_ofilestream_finish,
-(
-    myio_ofilestream_t * ostream,
-    gta_errinfo_t errinfo,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(
+    bool,
+    myio_ofilestream_finish,
+    (myio_ofilestream_t * ostream, gta_errinfo_t errinfo, gta_errinfo_t * p_errinfo));
 
-GTA_DECLARE_FUNCTION(bool, myio_open_ofilestream,
-(
-    myio_ofilestream_t * ostream,
-    const char * filename,
-    gta_errinfo_t * p_errinfo
-));
+GTA_DECLARE_FUNCTION(
+    bool,
+    myio_open_ofilestream,
+    (myio_ofilestream_t * ostream, const char * filename, gta_errinfo_t * p_errinfo));
 
 /*---------------------------------------------------------------------*/
 
@@ -124,36 +99,17 @@ typedef struct istream_from_buf {
 
     /* private implementation details */
     const char * buf; /* data buffer */
-    size_t buf_size; /* data buffer size */
-    size_t buf_pos; /* current position in data buffer */
+    size_t buf_size;  /* data buffer size */
+    size_t buf_pos;   /* current position in data buffer */
 } istream_from_buf_t;
 
-size_t istream_from_buf_read
-(
-    istream_from_buf_t * istream,
-    char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-);
+size_t istream_from_buf_read(istream_from_buf_t * istream, char * data, size_t len, gta_errinfo_t * p_errinfo);
 
-bool istream_from_buf_eof
-(
-    istream_from_buf_t * istream,
-    gta_errinfo_t * p_errinfo
-);
+bool istream_from_buf_eof(istream_from_buf_t * istream, gta_errinfo_t * p_errinfo);
 
-void istream_from_buf_init
-(
-    istream_from_buf_t * istream,
-    const char * buf,
-    size_t buf_size
-);
+void istream_from_buf_init(istream_from_buf_t * istream, const char * buf, size_t buf_size);
 
-bool ostream_finish(
-    gtaio_ostream_t * ostream,
-    gta_errinfo_t errinfo,
-    gta_errinfo_t * p_errinfo
-);
+bool ostream_finish(gtaio_ostream_t * ostream, gta_errinfo_t errinfo, gta_errinfo_t * p_errinfo);
 
 /* gtaio_ostream implementation to write the output to a temporary buffer */
 typedef struct ostream_to_buf {
@@ -164,25 +120,14 @@ typedef struct ostream_to_buf {
     gtaio_stream_finish_t finish;
 
     /* private implementation details */
-    char * buf; /* data buffer */
+    char * buf;      /* data buffer */
     size_t buf_size; /* data buffer size */
-    size_t buf_pos; /* current position in data buffer */
+    size_t buf_pos;  /* current position in data buffer */
 } ostream_to_buf_t;
 
-size_t ostream_to_buf_write
-(
-    ostream_to_buf_t * ostream,
-    const char * data,
-    size_t len,
-    gta_errinfo_t * p_errinfo
-);
+size_t ostream_to_buf_write(ostream_to_buf_t * ostream, const char * data, size_t len, gta_errinfo_t * p_errinfo);
 
-void ostream_to_buf_init
-(
-    ostream_to_buf_t * ostream,
-    char * buf,
-    size_t buf_size
-);
+void ostream_to_buf_init(ostream_to_buf_t * ostream, char * buf, size_t buf_size);
 
 /*---------------------------------------------------------------------*/
 
