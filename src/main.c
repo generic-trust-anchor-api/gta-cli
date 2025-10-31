@@ -252,10 +252,12 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                             parse_attributes(
                                 str_temp, &(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num - 1]))) {
                             fprintf(stderr, "Missing function arguments\n");
+                            fclose(p_file_attributes);
                             return EXIT_FAILURE;
                         }
                     } else {
                         fprintf(stderr, "Memory allocation error\n");
+                        fclose(p_file_attributes);
                         return EXIT_FAILURE;
                     }
                 }
