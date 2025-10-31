@@ -23,6 +23,9 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 #define MAXLEN_PROFILE 160
 #define MAXLEN_IDENTIFIER_TYPE 100
 #define MAXLEN_IDENTIFIER_NAME 100
+#define MAXLEN_PERSONALITY_NAME 100
+#define MAXLEN_ATTRIBUTE 150
+#define MAXLEN_STATEDIR_PATH 150
 
 /* List of all profiles supported by gta-cli */
 static char profiles_to_register[][MAXLEN_PROFILE] = {
@@ -34,7 +37,7 @@ static char profiles_to_register[][MAXLEN_PROFILE] = {
     "com.github.generic-trust-anchor-api.basic.enroll",
     "org.opcfoundation.ECC-nistP256"};
 
-bool basic_sw_provider_gta_register_provider(
+bool gta_sw_provider_gta_register_provider(
     gta_instance_handle_t h_inst,
     gtaio_istream_t * init_config,
     gta_profile_name_t profile,
@@ -113,6 +116,12 @@ void show_help();
 void show_function_help(enum functions func);
 int parse_attributes(char * p_attr, t_attribute * p_attribute);
 void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes);
+int pers_add_attribute(
+    gta_instance_handle_t h_inst,
+    gta_context_handle_t h_ctx,
+    struct arguments * arguments,
+    bool trusted);
+int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -139,11 +148,11 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
 
     /* Parse the arguments */
 
-    if ((1 >= argc)) {
+    if (1 >= argc) {
         show_help();
         return EXIT_FAILURE;
     }
-    if ((strcmp(argv[1], "--help") == 0)) {
+    if (strcmp(argv[1], "--help") == 0) {
         show_help();
         exit(EXIT_SUCCESS);
     } else if (strcmp(argv[1], "identifier_assign") == 0) {
@@ -188,12 +197,10 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
         return EXIT_FAILURE;
     }
 
-    if (b_options) {
-        if (2 >= argc) {
-            fprintf(stderr, "Missing function arguments \n");
-            show_function_help(arguments->func);
-            return EXIT_FAILURE;
-        }
+    if ((b_options) && (2 >= argc)) {
+        fprintf(stderr, "Missing function arguments \n");
+        show_function_help(arguments->func);
+        return EXIT_FAILURE;
     }
 
     for (int i = 2; i < argc; ++i) {
@@ -219,7 +226,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             arguments->data = argv[i] + 7;
         } else if (strncmp(argv[i], "--ctx_attr_file=", 16) == 0) {
             FILE * p_file_attributes = NULL;
-            char str_temp[150];
+            char str_temp[MAXLEN_ATTRIBUTE] = {0};
 
             p_file_attributes = fopen(argv[i] + 16, "r");
             if (NULL == p_file_attributes) {
@@ -238,24 +245,25 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                ...
             */
 
-            while (fgets(str_temp, 150, p_file_attributes)) {
-                str_temp[strcspn(str_temp, "\n")] = '\0';
-                if (0 != strlen(str_temp)) {
+            while (fgets(str_temp, sizeof(str_temp) - 1, p_file_attributes)) {
+                if (0 != strnlen(str_temp, sizeof(str_temp))) {
 
                     t_attribute * p_new_attribute = NULL;
                     ++arguments->ctx_attributes.num;
                     p_new_attribute =
                         realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num * sizeof(t_attribute));
                     if (NULL != p_new_attribute) {
-                        arguments->ctx_attributes.p_attr = (t_attribute *)p_new_attribute;
+                        arguments->ctx_attributes.p_attr = p_new_attribute;
                         if (EXIT_SUCCESS !=
                             parse_attributes(
                                 str_temp, &(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num - 1]))) {
                             fprintf(stderr, "Missing function arguments\n");
+                            fclose(p_file_attributes);
                             return EXIT_FAILURE;
                         }
                     } else {
                         fprintf(stderr, "Memory allocation error\n");
+                        fclose(p_file_attributes);
                         return EXIT_FAILURE;
                     }
                 }
@@ -278,7 +286,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             p_new_attribute =
                 realloc(arguments->ctx_attributes_bin.p_attr, arguments->ctx_attributes_bin.num * sizeof(t_attribute));
             if (NULL != p_new_attribute) {
-                arguments->ctx_attributes_bin.p_attr = (t_attribute *)p_new_attribute;
+                arguments->ctx_attributes_bin.p_attr = p_new_attribute;
                 if (EXIT_SUCCESS !=
                     parse_attributes(
                         argv[i], &(arguments->ctx_attributes_bin.p_attr[arguments->ctx_attributes_bin.num - 1]))) {
@@ -305,7 +313,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             p_new_attribute =
                 realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num * sizeof(t_attribute));
             if (NULL != p_new_attribute) {
-                arguments->ctx_attributes.p_attr = (t_attribute *)p_new_attribute;
+                arguments->ctx_attributes.p_attr = p_new_attribute;
                 if (EXIT_SUCCESS !=
                     parse_attributes(argv[i], &(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num - 1]))) {
                     fprintf(stderr, "Missing function arguments\n");
@@ -549,8 +557,10 @@ void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes)
  */
 int parse_attributes(char * p_attr, t_attribute * p_attribute)
 {
-    char * p_attr_type = NULL;
-    char * p_attr_val = NULL;
+    const char * p_attr_type = NULL;
+    const char * p_attr_val = NULL;
+    size_t attr_type_len = 0;
+    size_t attr_val_len = 0;
 
     if (NULL == p_attr || NULL == p_attribute) {
         return EXIT_FAILURE;
@@ -573,10 +583,15 @@ int parse_attributes(char * p_attr, t_attribute * p_attribute)
         p_attr_val = sep_at + 1;
     }
 
-    p_attribute->p_type = calloc(strlen(p_attr_type) + 1, sizeof(char));
-    p_attribute->p_val = calloc(strlen(p_attr_val) + 1, sizeof(char));
-    strcpy(p_attribute->p_type, p_attr_type);
-    strcpy(p_attribute->p_val, p_attr_val);
+    attr_type_len = strnlen(p_attr_type, MAXLEN_ATTRIBUTE) + 1;
+    attr_val_len = strnlen(p_attr_val, MAXLEN_ATTRIBUTE) + 1;
+    p_attribute->p_type = calloc(attr_type_len, sizeof(char));
+    p_attribute->p_val = calloc(attr_val_len, sizeof(char));
+    if ((NULL == p_attribute->p_type) || (NULL == p_attribute->p_val)) {
+        return EXIT_FAILURE;
+    }
+    memcpy(p_attribute->p_type, p_attr_type, attr_type_len);
+    memcpy(p_attribute->p_val, p_attr_val, attr_val_len);
 
     return EXIT_SUCCESS;
 }
@@ -587,7 +602,7 @@ static bool create_folder(const char * folder_path)
     DIR * dir = opendir(folder_path);
 
     if (NULL == dir) {
-        if (0 != mkdir(folder_path, 0755)) {
+        if (0 != mkdir(folder_path, 0770)) {
             fprintf(stderr, "Error: creating folder\n");
         } else {
             ret = true;
@@ -599,14 +614,91 @@ static bool create_folder(const char * folder_path)
     return ret;
 }
 
+int pers_add_attribute(
+    gta_instance_handle_t h_inst,
+    gta_context_handle_t h_ctx,
+    struct arguments * arguments,
+    bool trusted)
+{
+    int ret = EXIT_FAILURE;
+    gta_errinfo_t errinfo = 0;
+    myio_ifilestream_t istream_attr_val = {0};
+
+    if (NULL == arguments->pers || NULL == arguments->prof || NULL == arguments->attr_type ||
+        NULL == arguments->attr_name) {
+        fprintf(stderr, "Invalid or missing function arguments\n");
+        show_function_help(arguments->func);
+        goto cleanup;
+    }
+
+    if (NULL != arguments->attr_val) {
+        if (!myio_open_ifilestream(&istream_attr_val, arguments->attr_val, &errinfo)) {
+            fprintf(stderr, "Cannot open file %s\n", arguments->attr_val);
+            goto cleanup;
+        }
+    } else {
+        istream_attr_val.file = stdin;
+        istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
+        istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
+    }
+
+    h_ctx = gta_context_open(h_inst, arguments->pers, arguments->prof, &errinfo);
+    if (NULL == h_ctx) {
+        fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+        goto cleanup;
+    }
+
+    if (trusted) {
+        if (!gta_personality_add_trusted_attribute(
+                h_ctx, arguments->attr_type, arguments->attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
+            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+    } else {
+        if (!gta_personality_add_attribute(
+                h_ctx, arguments->attr_type, arguments->attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
+            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+    }
+    if (!gta_context_close(h_ctx, &errinfo)) {
+        fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+        goto cleanup;
+    }
+    ret = EXIT_SUCCESS;
+
+cleanup:
+    myio_close_ifilestream(&istream_attr_val, &errinfo);
+    return ret;
+}
+
+int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag)
+{
+    int ret = EXIT_SUCCESS;
+    if (NULL != arguments->pers_flag) {
+        if (!strcmp(arguments->pers_flag, "ALL")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_ALL;
+        } else if (!strcmp(arguments->pers_flag, "ACTIVE")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
+        } else if (!strcmp(arguments->pers_flag, "INACTIVE")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
+        } else {
+            fprintf(stderr, "Invalid function arguments\n");
+            show_function_help(arguments->func);
+            ret = EXIT_FAILURE;
+        }
+    }
+    return ret;
+}
+
 int main(int argc, char * argv[])
 {
-    struct arguments arguments;
+    struct arguments arguments = {0};
     int ret = EXIT_FAILURE;
     /* the environment variable GTA_STATE_DIRECTORY takes a path to a dir
        this dir should be already present on the filesystem */
     char * p_state_dir_env = getenv("GTA_STATE_DIRECTORY");
-    char * p_state_dir = NULL;
+    const char * p_state_dir = NULL;
     if (NULL == p_state_dir_env) {
         p_state_dir = "gta_state";  /* default directory name to store gta states */
         create_folder(p_state_dir); /* create the default one if not existing */
@@ -620,7 +712,8 @@ int main(int argc, char * argv[])
         return ret;
     }
 
-    gta_instance_handle_t h_inst;
+    gta_instance_handle_t h_inst = GTA_HANDLE_INVALID;
+    gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
     gta_errinfo_t errinfo = 0;
 
     /* GTA instance used by the tests */
@@ -637,52 +730,49 @@ int main(int argc, char * argv[])
         NULL};
 
     istream_from_buf_t init_config = {0};
-    istream_from_buf_init(&init_config, p_state_dir, strlen(p_state_dir));
+    istream_from_buf_init(&init_config, p_state_dir, strnlen(p_state_dir, MAXLEN_STATEDIR_PATH));
 
     /* initialising gta_instance */
     h_inst = gta_instance_init(&inst_params, &errinfo);
 
     if (NULL == h_inst) {
         fprintf(stderr, "h_inst failed with ERROR_CODE %ld\n", errinfo);
-        return EXIT_FAILURE;
+        goto cleanup;
     }
 
     /* register profiles for provider */
     for (size_t i = 0; i < (sizeof(profiles_to_register) / sizeof(profiles_to_register[0])); ++i) {
-        if (!basic_sw_provider_gta_register_provider(
+        if (!gta_sw_provider_gta_register_provider(
                 h_inst, (gtaio_istream_t *)&init_config, profiles_to_register[i], &errinfo)) {
-            fprintf(stderr, "basic_sw_provider_gta_register_provider failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            fprintf(stderr, "gta_sw_provider_gta_register_provider failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
         }
     }
 
     /* Call the selected function with the parsed arguments */
     switch (arguments.func) {
     case identifier_assign: {
-        /* Usage: gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE:AD:BE:EF:FE:ED */
 
         if (NULL == arguments.id_type || NULL == arguments.id_val) {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_identifier_assign(h_inst, arguments.id_type, arguments.id_val, &errinfo)) {
             fprintf(stderr, "gta_identifier_assign failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
     }
     case personality_create: {
-        /* gta-cli personality_create --id_val=DE:AD:BE:EF:FE:ED --pers=test_pers_seal_data
-         * --prof=ch.iec.30168.basic.local_data_protection */
 
         if (NULL == arguments.id_val || NULL == arguments.pers || NULL == arguments.prof ||
             NULL == arguments.app_name) {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         gta_access_policy_handle_t h_auth_use = GTA_HANDLE_INVALID;
@@ -692,7 +782,7 @@ int main(int argc, char * argv[])
         h_auth_use = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL, &errinfo);
         if (h_auth_use == NULL) {
             fprintf(stderr, "h_auth_use failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
         h_auth_admin = h_auth_use;
 
@@ -707,7 +797,7 @@ int main(int argc, char * argv[])
                 protection_properties,
                 &errinfo)) {
             fprintf(stderr, "gta_personality_create failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
         break;
     }
@@ -715,14 +805,10 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
-
         myio_ifilestream_t istream_data_to_seal = {0};
-
         myio_ofilestream_t ostream_sealed_data = {0};
         ostream_sealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
         ostream_sealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
@@ -731,7 +817,7 @@ int main(int argc, char * argv[])
         if (NULL != arguments.data) {
             if (!myio_open_ifilestream(&istream_data_to_seal, arguments.data, &errinfo)) {
                 fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                return EXIT_FAILURE;
+                goto cleanup;
             }
         } else {
             istream_data_to_seal.read = (gtaio_stream_read_t)myio_ifilestream_read;
@@ -742,17 +828,17 @@ int main(int argc, char * argv[])
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_seal_data(
                 h_ctx, (gtaio_istream_t *)&istream_data_to_seal, (gtaio_ostream_t *)&ostream_sealed_data, &errinfo)) {
             fprintf(stderr, "gta_seal_data failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (NULL != arguments.data) {
@@ -765,12 +851,10 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
         myio_ifilestream_t istream_sealed_data = {0};
-
         myio_ofilestream_t ostream_unsealed_data = {0};
         ostream_unsealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
         ostream_unsealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
@@ -779,7 +863,7 @@ int main(int argc, char * argv[])
         if (NULL != arguments.data) {
             if (!myio_open_ifilestream(&istream_sealed_data, arguments.data, &errinfo)) {
                 fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                return EXIT_FAILURE;
+                goto cleanup;
             }
         } else {
             istream_sealed_data.read = (gtaio_stream_read_t)myio_ifilestream_read;
@@ -791,18 +875,18 @@ int main(int argc, char * argv[])
 
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_unseal_data(
                 h_ctx, (gtaio_istream_t *)&istream_sealed_data, (gtaio_ostream_t *)&ostream_unsealed_data, &errinfo)) {
             fprintf(stderr, "gta_unseal_data failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (NULL != arguments.data) {
@@ -843,28 +927,18 @@ int main(int argc, char * argv[])
         if (NULL == arguments.id_val) {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         int num_of_personality = 0;
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
-        char persnamebuf[100] = {0};
+        char persnamebuf[MAXLEN_PERSONALITY_NAME] = {0};
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
-        if (NULL != arguments.pers_flag) {
-            if (!strncmp(arguments.pers_flag, "ALL", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strncmp(arguments.pers_flag, "ACTIVE", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
-            } else {
-                fprintf(stderr, "Invalid function arguments\n");
-                show_function_help(arguments.func);
-                return EXIT_FAILURE;
-            }
+        if (!parse_pers_flag(&arguments, &pers_flag)) {
+            goto cleanup;
         }
 
         while (b_loop) {
@@ -892,28 +966,18 @@ int main(int argc, char * argv[])
         if (NULL == arguments.app_name) {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         int num_of_personality = 0;
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
-        char persnamebuf[100] = {0};
+        char persnamebuf[MAXLEN_PERSONALITY_NAME] = {0};
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
-        if (NULL != arguments.pers_flag) {
-            if (!strncmp(arguments.pers_flag, "ALL", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strncmp(arguments.pers_flag, "ACTIVE", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
-                pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
-            } else {
-                fprintf(stderr, "Invalid function arguments\n");
-                show_function_help(arguments.func);
-                return EXIT_FAILURE;
-            }
+        if (!parse_pers_flag(&arguments, &pers_flag)) {
+            goto cleanup;
         }
 
         while (b_loop) {
@@ -937,93 +1001,15 @@ int main(int argc, char * argv[])
         break;
     }
     case personality_add_attribute: {
-        if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type ||
-            NULL == arguments.attr_name) {
-            fprintf(stderr, "Invalid or missing function arguments\n");
-            show_function_help(arguments.func);
-            return EXIT_FAILURE;
+        if (!pers_add_attribute(h_inst, h_ctx, &arguments, false)) {
+            goto cleanup;
         }
-
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
-        myio_ifilestream_t istream_attr_val = {0};
-
-        if (NULL != arguments.attr_val) {
-            if (!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
-                return EXIT_FAILURE;
-            }
-        } else {
-            istream_attr_val.file = stdin;
-            istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-        }
-
-        h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
-        if (NULL == h_ctx) {
-            fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-
-        if (!gta_personality_add_attribute(
-                h_ctx, arguments.attr_type, arguments.attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
-            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-        if (!gta_context_close(h_ctx, &errinfo)) {
-            fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-
-        if (arguments.attr_val != NULL) {
-            myio_close_ifilestream(&istream_attr_val, &errinfo);
-        }
-
         break;
     }
     case personality_add_trusted_attribute: {
-        if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type ||
-            NULL == arguments.attr_name) {
-            fprintf(stderr, "Invalid or missing function arguments\n");
-            show_function_help(arguments.func);
-            return EXIT_FAILURE;
+        if (!pers_add_attribute(h_inst, h_ctx, &arguments, true)) {
+            goto cleanup;
         }
-
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
-        myio_ifilestream_t istream_attr_val = {0};
-
-        if (NULL != arguments.attr_val) {
-            if (!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
-                return EXIT_FAILURE;
-            }
-        } else {
-            istream_attr_val.file = stdin;
-            istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-        }
-
-        h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
-        if (NULL == h_ctx) {
-            fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-
-        if (!gta_personality_add_trusted_attribute(
-                h_ctx, arguments.attr_type, arguments.attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
-            fprintf(stderr, "gta_personality_add_trusted_attribute failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-        if (!gta_context_close(h_ctx, &errinfo)) {
-            fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
-        }
-
-        if (arguments.attr_val != NULL) {
-            myio_close_ifilestream(&istream_attr_val, &errinfo);
-        }
-
         break;
     }
     case personality_get_attribute: {
@@ -1031,11 +1017,9 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
         myio_ofilestream_t ostream_attr_value = {0};
         ostream_attr_value.write = (gtaio_stream_write_t)myio_ofilestream_write;
         ostream_attr_value.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
@@ -1044,18 +1028,18 @@ int main(int argc, char * argv[])
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_personality_get_attribute(
                 h_ctx, arguments.attr_name, (gtaio_ostream_t *)&ostream_attr_value, &errinfo)) {
             fprintf(stderr, "gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
@@ -1065,26 +1049,23 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_name) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
-
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_personality_remove_attribute(h_ctx, arguments.attr_name, &errinfo)) {
             fprintf(stderr, "gta_personality_remove_attribute failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
@@ -1094,16 +1075,16 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         int num_of_attribute = 0;
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
 
-        char attrtypebuf[100] = {0};
+        char attrtypebuf[MAXLEN_ATTRIBUTE] = {0};
         ostream_to_buf_t o_attrtype = {0};
-        char attrnamebuf[100] = {0};
+        char attrnamebuf[MAXLEN_ATTRIBUTE] = {0};
         ostream_to_buf_t o_attrname = {0};
 
         while (b_loop) {
@@ -1132,13 +1113,10 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
         myio_ifilestream_t istream_data = {0};
-
         myio_ofilestream_t ostream_sealed_data = {0};
         ostream_sealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
         ostream_sealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
@@ -1147,7 +1125,7 @@ int main(int argc, char * argv[])
         if (arguments.data != NULL) {
             if (!myio_open_ifilestream(&istream_data, arguments.data, &errinfo)) {
                 fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                return EXIT_FAILURE;
+                goto cleanup;
             }
         } else {
             istream_data.read = (gtaio_stream_read_t)myio_ifilestream_read;
@@ -1159,18 +1137,18 @@ int main(int argc, char * argv[])
 
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_authenticate_data_detached(
                 h_ctx, (gtaio_istream_t *)&istream_data, (gtaio_ostream_t *)&ostream_sealed_data, &errinfo)) {
             fprintf(stderr, "gta_authenticate_data_detached failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (arguments.data != NULL) {
@@ -1182,11 +1160,8 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
-
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
 
         myio_ofilestream_t ostream_enrollment_request = {0};
         ostream_enrollment_request.write = (gtaio_stream_write_t)myio_ofilestream_write;
@@ -1197,7 +1172,7 @@ int main(int argc, char * argv[])
 
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         /* if context attributes were given call gta_context_set_attribute()*/
@@ -1210,7 +1185,7 @@ int main(int argc, char * argv[])
                 if (!myio_open_ifilestream(
                         &ifilestream_attr_val, arguments.ctx_attributes_bin.p_attr[i].p_val, &errinfo)) {
                     printf("Cannot open file %s\n", arguments.ctx_attributes_bin.p_attr[i].p_val);
-                    return EXIT_FAILURE;
+                    goto cleanup;
                 }
 
                 if (!gta_context_set_attribute(
@@ -1219,7 +1194,7 @@ int main(int argc, char * argv[])
                         (gtaio_istream_t *)&ifilestream_attr_val,
                         &errinfo)) {
                     printf("gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
-                    return EXIT_FAILURE;
+                    goto cleanup;
                 }
                 myio_close_ifilestream(&ifilestream_attr_val, &errinfo);
             }
@@ -1233,7 +1208,7 @@ int main(int argc, char * argv[])
                 istream_from_buf_init(
                     &istream_attr_val,
                     arguments.ctx_attributes.p_attr[i].p_val,
-                    strlen(arguments.ctx_attributes.p_attr[i].p_val) + 1);
+                    strnlen(arguments.ctx_attributes.p_attr[i].p_val, MAXLEN_ATTRIBUTE) + 1);
 
                 if (!gta_context_set_attribute(
                         h_ctx,
@@ -1241,7 +1216,7 @@ int main(int argc, char * argv[])
                         (gtaio_istream_t *)&istream_attr_val,
                         &errinfo)) {
                     fprintf(stderr, "gta_context_set_attribute failed with ERROR_CODE %ld\n", errinfo);
-                    return EXIT_FAILURE;
+                    goto cleanup;
                 }
             }
         }
@@ -1251,12 +1226,12 @@ int main(int argc, char * argv[])
 
         if (!gta_personality_enroll(h_ctx, (gtaio_ostream_t *)&ostream_enrollment_request, &errinfo)) {
             fprintf(stderr, "gta_personality_enroll failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
@@ -1265,27 +1240,24 @@ int main(int argc, char * argv[])
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
-
-        gta_errinfo_t errinfo = 0;
-        gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_personality_remove(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_personality_remove failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
             fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
@@ -1295,10 +1267,9 @@ int main(int argc, char * argv[])
         if (NULL == arguments.owner_lock_count) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
-        gta_errinfo_t errinfo = 0;
         gta_access_policy_handle_t h_auth_recede = GTA_HANDLE_INVALID;
 
         h_auth_recede = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_PHYSICAL_PRESENCE_TOKEN, &errinfo);
@@ -1306,13 +1277,13 @@ int main(int argc, char * argv[])
         if (GTA_HANDLE_INVALID == h_auth_recede) {
             fprintf(stderr, "gta_access_policy_simple failed with ERROR_CODE %ld\n", errinfo);
             free(arguments.owner_lock_count);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_devicestate_transition(h_inst, h_auth_recede, *arguments.owner_lock_count, &errinfo)) {
             fprintf(stderr, "gta_devicestate_transition failed with ERROR_CODE %ld\n", errinfo);
             free(arguments.owner_lock_count);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
         free(arguments.owner_lock_count);
 
@@ -1321,16 +1292,15 @@ int main(int argc, char * argv[])
 
     case devicestate_recede: {
 
-        gta_errinfo_t errinfo = 0;
         gta_access_token_t physical_presence_token;
         if (!gta_access_token_get_physical_presence(h_inst, physical_presence_token, &errinfo)) {
             fprintf(stderr, "gta_access_token_get_physical_presence failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         if (!gta_devicestate_recede(h_inst, physical_presence_token, &errinfo)) {
             fprintf(stderr, "gta_devicestate_recede failed with ERROR_CODE %ld\n", errinfo);
-            return EXIT_FAILURE;
+            goto cleanup;
         }
 
         break;
@@ -1338,10 +1308,19 @@ int main(int argc, char * argv[])
 
     default:
         fprintf(stderr, "Unknown function.\n");
-        return EXIT_FAILURE;
+        goto cleanup;
     }
 
-    gta_instance_final(h_inst, &errinfo);
+    ret = EXIT_SUCCESS;
 
-    return EXIT_SUCCESS;
+cleanup:
+    free_ctx_attributes(&arguments.ctx_attributes);
+    free_ctx_attributes(&arguments.ctx_attributes_bin);
+    if (GTA_HANDLE_INVALID != h_ctx) {
+        gta_context_close(h_ctx, &errinfo);
+    }
+    if (GTA_HANDLE_INVALID != h_inst) {
+        gta_instance_final(h_inst, &errinfo);
+    }
+    return ret;
 }
