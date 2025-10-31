@@ -23,6 +23,7 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 #define MAXLEN_PROFILE 160
 #define MAXLEN_IDENTIFIER_TYPE 100
 #define MAXLEN_IDENTIFIER_NAME 100
+#define MAXLEN_ATTRIBUTE 150
 
 /* List of all profiles supported by gta-cli */
 static char profiles_to_register[][MAXLEN_PROFILE] = {
@@ -219,7 +220,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             arguments->data = argv[i] + 7;
         } else if (strncmp(argv[i], "--ctx_attr_file=", 16) == 0) {
             FILE * p_file_attributes = NULL;
-            char str_temp[150];
+            char str_temp[MAXLEN_ATTRIBUTE] = {0};
 
             p_file_attributes = fopen(argv[i] + 16, "r");
             if (NULL == p_file_attributes) {
@@ -238,9 +239,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                ...
             */
 
-            while (fgets(str_temp, 150, p_file_attributes)) {
-                str_temp[strcspn(str_temp, "\n")] = '\0';
-                if (0 != strlen(str_temp)) {
+            while (fgets(str_temp, sizeof(str_temp) - 1, p_file_attributes)) {
+                if (0 != strnlen(str_temp, sizeof(str_temp))) {
 
                     t_attribute * p_new_attribute = NULL;
                     ++arguments->ctx_attributes.num;
