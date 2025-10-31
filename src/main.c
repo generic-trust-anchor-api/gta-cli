@@ -146,11 +146,11 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
 
     /* Parse the arguments */
 
-    if ((1 >= argc)) {
+    if (1 >= argc) {
         show_help();
         return EXIT_FAILURE;
     }
-    if ((strcmp(argv[1], "--help") == 0)) {
+    if (strcmp(argv[1], "--help") == 0) {
         show_help();
         exit(EXIT_SUCCESS);
     } else if (strcmp(argv[1], "identifier_assign") == 0) {
@@ -195,12 +195,10 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
         return EXIT_FAILURE;
     }
 
-    if (b_options) {
-        if (2 >= argc) {
-            fprintf(stderr, "Missing function arguments \n");
-            show_function_help(arguments->func);
-            return EXIT_FAILURE;
-        }
+    if (b_options && (2 >= argc)) {
+        fprintf(stderr, "Missing function arguments \n");
+        show_function_help(arguments->func);
+        return EXIT_FAILURE;
     }
 
     for (int i = 2; i < argc; ++i) {
@@ -253,7 +251,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                     p_new_attribute =
                         realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num * sizeof(t_attribute));
                     if (NULL != p_new_attribute) {
-                        arguments->ctx_attributes.p_attr = (t_attribute *)p_new_attribute;
+                        arguments->ctx_attributes.p_attr = p_new_attribute;
                         if (EXIT_SUCCESS !=
                             parse_attributes(
                                 str_temp, &(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num - 1]))) {
@@ -286,7 +284,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             p_new_attribute =
                 realloc(arguments->ctx_attributes_bin.p_attr, arguments->ctx_attributes_bin.num * sizeof(t_attribute));
             if (NULL != p_new_attribute) {
-                arguments->ctx_attributes_bin.p_attr = (t_attribute *)p_new_attribute;
+                arguments->ctx_attributes_bin.p_attr = p_new_attribute;
                 if (EXIT_SUCCESS !=
                     parse_attributes(
                         argv[i], &(arguments->ctx_attributes_bin.p_attr[arguments->ctx_attributes_bin.num - 1]))) {
@@ -313,7 +311,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             p_new_attribute =
                 realloc(arguments->ctx_attributes.p_attr, arguments->ctx_attributes.num * sizeof(t_attribute));
             if (NULL != p_new_attribute) {
-                arguments->ctx_attributes.p_attr = (t_attribute *)p_new_attribute;
+                arguments->ctx_attributes.p_attr = p_new_attribute;
                 if (EXIT_SUCCESS !=
                     parse_attributes(argv[i], &(arguments->ctx_attributes.p_attr[arguments->ctx_attributes.num - 1]))) {
                     fprintf(stderr, "Missing function arguments\n");
@@ -557,8 +555,8 @@ void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes)
  */
 int parse_attributes(char * p_attr, t_attribute * p_attribute)
 {
-    char * p_attr_type = NULL;
-    char * p_attr_val = NULL;
+    const char * p_attr_type = NULL;
+    const char * p_attr_val = NULL;
     size_t attr_type_len = 0;
     size_t attr_val_len = 0;
 
@@ -679,7 +677,7 @@ int main(int argc, char * argv[])
     /* the environment variable GTA_STATE_DIRECTORY takes a path to a dir
        this dir should be already present on the filesystem */
     char * p_state_dir_env = getenv("GTA_STATE_DIRECTORY");
-    char * p_state_dir = NULL;
+    const char * p_state_dir = NULL;
     if (NULL == p_state_dir_env) {
         p_state_dir = "gta_state";  /* default directory name to store gta states */
         create_folder(p_state_dir); /* create the default one if not existing */
@@ -733,7 +731,6 @@ int main(int argc, char * argv[])
     /* Call the selected function with the parsed arguments */
     switch (arguments.func) {
     case identifier_assign: {
-        /* Usage: gta-cli identifier_assign --id_type=ch.iec.30168.identifier.mac_addr --id_val=DE:AD:BE:EF:FE:ED */
 
         if (NULL == arguments.id_type || NULL == arguments.id_val) {
             fprintf(stderr, "Invalid function arguments\n");
@@ -749,8 +746,6 @@ int main(int argc, char * argv[])
         break;
     }
     case personality_create: {
-        /* gta-cli personality_create --id_val=DE:AD:BE:EF:FE:ED --pers=test_pers_seal_data
-         * --prof=ch.iec.30168.basic.local_data_protection */
 
         if (NULL == arguments.id_val || NULL == arguments.pers || NULL == arguments.prof ||
             NULL == arguments.app_name) {
