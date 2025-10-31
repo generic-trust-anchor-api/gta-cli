@@ -121,6 +121,7 @@ int pers_add_attribute(
     gta_context_handle_t h_ctx,
     struct arguments * arguments,
     bool trusted);
+int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -671,6 +672,25 @@ cleanup:
     return ret;
 }
 
+int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag)
+{
+    int ret = EXIT_SUCCESS;
+    if (NULL != arguments->pers_flag) {
+        if (!strcmp(arguments->pers_flag, "ALL")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_ALL;
+        } else if (!strcmp(arguments->pers_flag, "ACTIVE")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
+        } else if (!strcmp(arguments->pers_flag, "INACTIVE")) {
+            *pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
+        } else {
+            fprintf(stderr, "Invalid function arguments\n");
+            show_function_help(arguments->func);
+            ret = EXIT_FAILURE;
+        }
+    }
+    return ret;
+}
+
 int main(int argc, char * argv[])
 {
     struct arguments arguments = {0};
@@ -913,18 +933,8 @@ int main(int argc, char * argv[])
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
-        if (NULL != arguments.pers_flag) {
-            if (!strcmp(arguments.pers_flag, "ALL")) {
-                pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strcmp(arguments.pers_flag, "ACTIVE")) {
-                pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strcmp(arguments.pers_flag, "INACTIVE")) {
-                pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
-            } else {
-                fprintf(stderr, "Invalid function arguments\n");
-                show_function_help(arguments.func);
-                goto cleanup;
-            }
+        if (EXIT_SUCCESS != parse_pers_flag(&arguments, &pers_flag)) {
+            goto cleanup;
         }
 
         while (b_loop) {
@@ -962,18 +972,8 @@ int main(int argc, char * argv[])
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
-        if (NULL != arguments.pers_flag) {
-            if (!strcmp(arguments.pers_flag, "ALL")) {
-                pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strcmp(arguments.pers_flag, "ACTIVE")) {
-                pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strcmp(arguments.pers_flag, "INACTIVE")) {
-                pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
-            } else {
-                fprintf(stderr, "Invalid function arguments\n");
-                show_function_help(arguments.func);
-                goto cleanup;
-            }
+        if (EXIT_SUCCESS != parse_pers_flag(&arguments, &pers_flag)) {
+            goto cleanup;
         }
 
         while (b_loop) {
