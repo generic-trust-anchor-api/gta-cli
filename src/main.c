@@ -23,6 +23,7 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 #define MAXLEN_PROFILE 160
 #define MAXLEN_IDENTIFIER_TYPE 100
 #define MAXLEN_IDENTIFIER_NAME 100
+#define MAXLEN_PERSONALITY_NAME 100
 #define MAXLEN_ATTRIBUTE 150
 #define MAXLEN_STATEDIR_PATH 150
 
@@ -912,7 +913,7 @@ int main(int argc, char * argv[])
         int num_of_personality = 0;
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
-        char persnamebuf[100] = {0};
+        char persnamebuf[MAXLEN_PERSONALITY_NAME] = {0};
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
@@ -961,7 +962,7 @@ int main(int argc, char * argv[])
         int num_of_personality = 0;
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
-        char persnamebuf[100] = {0};
+        char persnamebuf[MAXLEN_PERSONALITY_NAME] = {0};
         ostream_to_buf_t o_persname = {0};
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
@@ -1081,9 +1082,9 @@ int main(int argc, char * argv[])
         bool b_loop = true;
         gta_enum_handle_t h_enum = GTA_HANDLE_ENUM_FIRST;
 
-        char attrtypebuf[100] = {0};
+        char attrtypebuf[MAXLEN_ATTRIBUTE] = {0};
         ostream_to_buf_t o_attrtype = {0};
-        char attrnamebuf[100] = {0};
+        char attrnamebuf[MAXLEN_ATTRIBUTE] = {0};
         ostream_to_buf_t o_attrname = {0};
 
         while (b_loop) {
