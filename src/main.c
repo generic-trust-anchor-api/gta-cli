@@ -114,6 +114,11 @@ void show_help();
 void show_function_help(enum functions func);
 int parse_attributes(char * p_attr, t_attribute * p_attribute);
 void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes);
+int pers_add_attribute(
+    gta_instance_handle_t h_inst,
+    gta_context_handle_t h_ctx,
+    struct arguments * arguments,
+    bool trusted);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -608,6 +613,64 @@ static bool create_folder(const char * folder_path)
     return ret;
 }
 
+int pers_add_attribute(
+    gta_instance_handle_t h_inst,
+    gta_context_handle_t h_ctx,
+    struct arguments * arguments,
+    bool trusted)
+{
+    int ret = EXIT_FAILURE;
+    gta_errinfo_t errinfo = 0;
+    myio_ifilestream_t istream_attr_val = {0};
+
+    if (NULL == arguments->pers || NULL == arguments->prof || NULL == arguments->attr_type ||
+        NULL == arguments->attr_name) {
+        fprintf(stderr, "Invalid or missing function arguments\n");
+        show_function_help(arguments->func);
+        goto cleanup;
+    }
+
+    if (NULL != arguments->attr_val) {
+        if (!myio_open_ifilestream(&istream_attr_val, arguments->attr_val, &errinfo)) {
+            fprintf(stderr, "Cannot open file %s\n", arguments->attr_val);
+            goto cleanup;
+        }
+    } else {
+        istream_attr_val.file = stdin;
+        istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
+        istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
+    }
+
+    h_ctx = gta_context_open(h_inst, arguments->pers, arguments->prof, &errinfo);
+    if (NULL == h_ctx) {
+        fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+        goto cleanup;
+    }
+
+    if (trusted) {
+        if (!gta_personality_add_trusted_attribute(
+                h_ctx, arguments->attr_type, arguments->attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
+            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+    } else {
+        if (!gta_personality_add_attribute(
+                h_ctx, arguments->attr_type, arguments->attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
+            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+    }
+    if (!gta_context_close(h_ctx, &errinfo)) {
+        fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+        goto cleanup;
+    }
+    ret = EXIT_SUCCESS;
+
+cleanup:
+    myio_close_ifilestream(&istream_attr_val, &errinfo);
+    return ret;
+}
+
 int main(int argc, char * argv[])
 {
     struct arguments arguments = {0};
@@ -937,89 +1000,15 @@ int main(int argc, char * argv[])
         break;
     }
     case personality_add_attribute: {
-        if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type ||
-            NULL == arguments.attr_name) {
-            fprintf(stderr, "Invalid or missing function arguments\n");
-            show_function_help(arguments.func);
+        if (EXIT_SUCCESS != pers_add_attribute(h_inst, h_ctx, &arguments, false)) {
             goto cleanup;
         }
-
-        myio_ifilestream_t istream_attr_val = {0};
-
-        if (NULL != arguments.attr_val) {
-            if (!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
-                goto cleanup;
-            }
-        } else {
-            istream_attr_val.file = stdin;
-            istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-        }
-
-        h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
-        if (NULL == h_ctx) {
-            fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-
-        if (!gta_personality_add_attribute(
-                h_ctx, arguments.attr_type, arguments.attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
-            fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-        if (!gta_context_close(h_ctx, &errinfo)) {
-            fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-
-        if (arguments.attr_val != NULL) {
-            myio_close_ifilestream(&istream_attr_val, &errinfo);
-        }
-
         break;
     }
     case personality_add_trusted_attribute: {
-        if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.attr_type ||
-            NULL == arguments.attr_name) {
-            fprintf(stderr, "Invalid or missing function arguments\n");
-            show_function_help(arguments.func);
+        if (EXIT_SUCCESS != pers_add_attribute(h_inst, h_ctx, &arguments, true)) {
             goto cleanup;
         }
-
-        myio_ifilestream_t istream_attr_val = {0};
-
-        if (NULL != arguments.attr_val) {
-            if (!myio_open_ifilestream(&istream_attr_val, arguments.attr_val, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.attr_val);
-                goto cleanup;
-            }
-        } else {
-            istream_attr_val.file = stdin;
-            istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-        }
-
-        h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
-        if (NULL == h_ctx) {
-            fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-
-        if (!gta_personality_add_trusted_attribute(
-                h_ctx, arguments.attr_type, arguments.attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
-            fprintf(stderr, "gta_personality_add_trusted_attribute failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-        if (!gta_context_close(h_ctx, &errinfo)) {
-            fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
-        }
-
-        if (arguments.attr_val != NULL) {
-            myio_close_ifilestream(&istream_attr_val, &errinfo);
-        }
-
         break;
     }
     case personality_get_attribute: {
