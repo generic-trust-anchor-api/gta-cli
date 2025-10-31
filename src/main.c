@@ -24,6 +24,7 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 #define MAXLEN_IDENTIFIER_TYPE 100
 #define MAXLEN_IDENTIFIER_NAME 100
 #define MAXLEN_ATTRIBUTE 150
+#define MAXLEN_STATEDIR_PATH 150
 
 /* List of all profiles supported by gta-cli */
 static char profiles_to_register[][MAXLEN_PROFILE] = {
@@ -710,7 +711,7 @@ int main(int argc, char * argv[])
         NULL};
 
     istream_from_buf_t init_config = {0};
-    istream_from_buf_init(&init_config, p_state_dir, strlen(p_state_dir));
+    istream_from_buf_init(&init_config, p_state_dir, strnlen(p_state_dir, MAXLEN_STATEDIR_PATH));
 
     /* initialising gta_instance */
     h_inst = gta_instance_init(&inst_params, &errinfo);
@@ -917,11 +918,11 @@ int main(int argc, char * argv[])
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
         if (NULL != arguments.pers_flag) {
-            if (!strncmp(arguments.pers_flag, "ALL", strlen(arguments.pers_flag))) {
+            if (!strcmp(arguments.pers_flag, "ALL")) {
                 pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strncmp(arguments.pers_flag, "ACTIVE", strlen(arguments.pers_flag))) {
+            } else if (!strcmp(arguments.pers_flag, "ACTIVE")) {
                 pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
+            } else if (!strcmp(arguments.pers_flag, "INACTIVE")) {
                 pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
             } else {
                 fprintf(stderr, "Invalid function arguments\n");
@@ -966,11 +967,11 @@ int main(int argc, char * argv[])
         gta_personality_enum_flags_t pers_flag = GTA_PERSONALITY_ENUM_ALL;
 
         if (NULL != arguments.pers_flag) {
-            if (!strncmp(arguments.pers_flag, "ALL", strlen(arguments.pers_flag))) {
+            if (!strcmp(arguments.pers_flag, "ALL")) {
                 pers_flag = GTA_PERSONALITY_ENUM_ALL;
-            } else if (!strncmp(arguments.pers_flag, "ACTIVE", strlen(arguments.pers_flag))) {
+            } else if (!strcmp(arguments.pers_flag, "ACTIVE")) {
                 pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
-            } else if (!strncmp(arguments.pers_flag, "INACTIVE", strlen(arguments.pers_flag))) {
+            } else if (!strcmp(arguments.pers_flag, "INACTIVE")) {
                 pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
             } else {
                 fprintf(stderr, "Invalid function arguments\n");
@@ -1199,7 +1200,7 @@ int main(int argc, char * argv[])
                 istream_from_buf_init(
                     &istream_attr_val,
                     arguments.ctx_attributes.p_attr[i].p_val,
-                    strlen(arguments.ctx_attributes.p_attr[i].p_val) + 1);
+                    strnlen(arguments.ctx_attributes.p_attr[i].p_val, MAXLEN_ATTRIBUTE) + 1);
 
                 if (!gta_context_set_attribute(
                         h_ctx,
