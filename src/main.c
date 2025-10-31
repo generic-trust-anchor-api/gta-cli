@@ -553,6 +553,8 @@ int parse_attributes(char * p_attr, t_attribute * p_attribute)
 {
     char * p_attr_type = NULL;
     char * p_attr_val = NULL;
+    size_t attr_type_len = 0;
+    size_t attr_val_len = 0;
 
     if (NULL == p_attr || NULL == p_attribute) {
         return EXIT_FAILURE;
@@ -575,10 +577,15 @@ int parse_attributes(char * p_attr, t_attribute * p_attribute)
         p_attr_val = sep_at + 1;
     }
 
-    p_attribute->p_type = calloc(strlen(p_attr_type) + 1, sizeof(char));
-    p_attribute->p_val = calloc(strlen(p_attr_val) + 1, sizeof(char));
-    strcpy(p_attribute->p_type, p_attr_type);
-    strcpy(p_attribute->p_val, p_attr_val);
+    attr_type_len = strnlen(p_attr_type, MAXLEN_ATTRIBUTE) + 1;
+    attr_val_len = strnlen(p_attr_val, MAXLEN_ATTRIBUTE) + 1;
+    p_attribute->p_type = calloc(attr_type_len, sizeof(char));
+    p_attribute->p_val = calloc(attr_val_len, sizeof(char));
+    if ((NULL == p_attribute->p_type) || (NULL == p_attribute->p_val)) {
+        return EXIT_FAILURE;
+    }
+    memcpy(p_attribute->p_type, p_attr_type, attr_type_len);
+    memcpy(p_attribute->p_val, p_attr_val, attr_val_len);
 
     return EXIT_SUCCESS;
 }
