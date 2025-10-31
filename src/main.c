@@ -601,7 +601,7 @@ static bool create_folder(const char * folder_path)
     DIR * dir = opendir(folder_path);
 
     if (NULL == dir) {
-        if (0 != mkdir(folder_path, 0755)) {
+        if (0 != mkdir(folder_path, 0770)) {
             fprintf(stderr, "Error: creating folder\n");
         } else {
             ret = true;
