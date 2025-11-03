@@ -114,14 +114,14 @@ struct arguments {
 /* Function prototypes */
 void show_help();
 void show_function_help(enum functions func);
-int parse_attributes(char * p_attr, t_attribute * p_attribute);
+int parse_attributes(const char * p_attr, t_attribute * p_attribute);
 void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes);
 int pers_add_attribute(
     gta_instance_handle_t h_inst,
     gta_context_handle_t h_ctx,
     struct arguments * arguments,
     bool trusted);
-int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
+int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -555,7 +555,7 @@ void free_ctx_attributes(t_ctx_attributes * p_ctx_attributes)
 /* Parse string p_attr with ATTR_TYPE=ATTR_VAL and write ATTR_TYPE and ATTR_VAL to members of p_attribute structure */
 /* the memory of p_attribute->p_type and p_attribute->p_val is allocated dynamically and should be freed by the caller
  */
-int parse_attributes(char * p_attr, t_attribute * p_attribute)
+int parse_attributes(const char * p_attr, t_attribute * p_attribute)
 {
     const char * p_attr_type = NULL;
     const char * p_attr_val = NULL;
@@ -672,7 +672,7 @@ cleanup:
     return ret;
 }
 
-int parse_pers_flag(struct arguments * arguments, gta_personality_enum_flags_t * pers_flag)
+int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag)
 {
     int ret = EXIT_SUCCESS;
     if (NULL != arguments->pers_flag) {
@@ -697,7 +697,7 @@ int main(int argc, char * argv[])
     int ret = EXIT_FAILURE;
     /* the environment variable GTA_STATE_DIRECTORY takes a path to a dir
        this dir should be already present on the filesystem */
-    char * p_state_dir_env = getenv("GTA_STATE_DIRECTORY");
+    const char * p_state_dir_env = getenv("GTA_STATE_DIRECTORY");
     const char * p_state_dir = NULL;
     if (NULL == p_state_dir_env) {
         p_state_dir = "gta_state";  /* default directory name to store gta states */
