@@ -33,14 +33,13 @@ jobs:
           sudo ninja -C build install
       - name: Checkout gta-cli
         uses: actions/checkout@v4
-      - name: Build and install gta-cli
+      - name: Build gta-cli
         run: |
-          meson setup build
-          sudo ninja -C build install
+          meson setup build --werror
+          ninja -C build
       - name: Test gta-cli
         run: |
-          sudo ldconfig
-          cd test && ./test_cli.sh
+          ninja -C build test
 
   style-check:
     runs-on: ubuntu-latest
