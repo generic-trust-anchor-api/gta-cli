@@ -110,6 +110,38 @@ echo "gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.l
 assert_success "seal_data"
 echo ""
 
+echo "< ./test_data/plain.txt gta-cli seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only > ${TEST_DIRECTORY}/out.enc"
+< ./test_data/plain.txt "$GTA_CLI_BINARY" seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only > "${TEST_DIRECTORY}/out.enc"
+assert_success "seal_data"
+echo "< ${TEST_DIRECTORY}/out.enc gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only"
+< "${TEST_DIRECTORY}/out.enc" "$GTA_CLI_BINARY" unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only
+assert_success "unseal_data"
+echo ""
+
+echo "gta-cli seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > ${TEST_DIRECTORY}/out.enc"
+"$GTA_CLI_BINARY" seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > "${TEST_DIRECTORY}out.enc"
+assert_success "seal_data"
+echo "gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=${TEST_DIRECTORY}/out.enc"
+"$GTA_CLI_BINARY" unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data="${TEST_DIRECTORY}/out.enc"
+assert_success "unseal_data"
+echo ""
+
+echo "gta-cli authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > ${TEST_DIRECTORY}/out.icv"
+"$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > "${TEST_DIRECTORY}/out.icv"
+assert_success "authenticate_data_detached"
+echo "gta-cli verify_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt --seal=${TEST_DIRECTORY}/out.icv"
+"$GTA_CLI_BINARY" verify_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt --seal="${TEST_DIRECTORY}/out.icv"
+assert_success "verify_data_detached"
+echo ""
+
+echo "< ./test_data/plain.txt gta-cli authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only > ${TEST_DIRECTORY}/out.icv"
+< ./test_data/plain.txt "$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only > "${TEST_DIRECTORY}/out.icv"
+assert_success "authenticate_data_detached"
+echo "< ./test_data/plain.txt gta-cli verify_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --seal=${TEST_DIRECTORY}/out.icv"
+< ./test_data/plain.txt "$GTA_CLI_BINARY" verify_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --seal="${TEST_DIRECTORY}/out.icv"
+assert_success "verify_data_detached"
+echo ""
+
 echo "gta-cli personality_enumerate --id_val=DE-AD-BE-EF-FE-ED"
 "$GTA_CLI_BINARY" personality_enumerate --id_val=DE-AD-BE-EF-FE-ED
 assert_success "personality_enumerate"
