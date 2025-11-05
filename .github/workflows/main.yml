@@ -60,3 +60,16 @@ jobs:
         uses: fsfe/reuse-action@v6
         with:
           args: --include-submodules lint
+
+  
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gta-cli
+        uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: |
+          find . -name "*.sh" -print0 | xargs -0 shellcheck
+
