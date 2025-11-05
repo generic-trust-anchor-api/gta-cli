@@ -145,8 +145,8 @@ echo "gta-cli identifier_enumerate"
 assert_success "identifier_enumerate"
 echo ""
 
-echo "gta-cli personality_enumerate --id_val=DE-AD-BE-EF-FE-ED"
-"$GTA_CLI_BINARY" personality_enumerate --id_val=DE-AD-BE-EF-FE-ED
+echo "gta-cli personality_enumerate --id_val=$ID_VALUE"
+"$GTA_CLI_BINARY" personality_enumerate --id_val="$ID_VALUE"
 assert_success "personality_enumerate"
 echo ""
 
