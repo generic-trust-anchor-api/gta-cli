@@ -4,8 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-: ${GTA_CLI_BINARY:="gta-cli"}
-: ${TEST_DIRECTORY:="./test_tmp"}
+: "${GTA_CLI_BINARY:="gta-cli"}"
+: "${TEST_DIRECTORY:="./test_tmp"}"
 
 echo "clean gta_state directory..."
 if [[ -z "${GTA_STATE_DIRECTORY}" ]]; then
@@ -14,8 +14,8 @@ fi
 
 export GTA_STATE_DIRECTORY
 
-mkdir -p $GTA_STATE_DIRECTORY
-rm -f $GTA_STATE_DIRECTORY/*
+mkdir -p "$GTA_STATE_DIRECTORY"
+rm -f "$GTA_STATE_DIRECTORY/"*
 echo ""
 
 num_ok=0
@@ -94,11 +94,11 @@ echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa
 assert_success "personality_create"
 echo ""
 
-echo "cat ./test_data/plain.txt | gta-cli seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection > ${TEST_DIRECTORY}/out.enc"
-cat ./test_data/plain.txt | "$GTA_CLI_BINARY" seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection > "${TEST_DIRECTORY}/out.enc"
+echo "< ./test_data/plain.txt gta-cli seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection > ${TEST_DIRECTORY}/out.enc"
+< ./test_data/plain.txt "$GTA_CLI_BINARY" seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection > "${TEST_DIRECTORY}/out.enc"
 assert_success "seal_data"
-echo "cat ${TEST_DIRECTORY}/out.enc | gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection"
-cat "${TEST_DIRECTORY}/out.enc" | "$GTA_CLI_BINARY" unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection
+echo "< ${TEST_DIRECTORY}/out.enc gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection"
+< "${TEST_DIRECTORY}/out.enc" "$GTA_CLI_BINARY" unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection
 assert_success "unseal_data"
 echo ""
 
@@ -132,8 +132,8 @@ echo ""
 echo "gta-cli personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST --attr_val=./test_data/attr_value_test.txt"
 "$GTA_CLI_BINARY" personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST --attr_val=./test_data/attr_value_test.txt
 assert_success "personality_add_attribute"
-echo "cat ./test_data/attr_value_test.txt | gta-cli personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST_2"
-cat ./test_data/attr_value_test.txt | "$GTA_CLI_BINARY" personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST_2
+echo "< ./test_data/attr_value_test.txt gta-cli personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST_2"
+< ./test_data/attr_value_test.txt "$GTA_CLI_BINARY" personality_add_attribute --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --attr_type=ch.iec.30168.trustlist.certificate.self.x509 --attr_name=ATTR_NAME_TEST_2
 assert_success "personality_add_attribute"
 echo ""
 
@@ -169,8 +169,8 @@ echo ""
 echo "gta-cli authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --data=./test_data/plain.txt  > ${TEST_DIRECTORY}/sig.bin"
 "$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls --data=./test_data/plain.txt > "${TEST_DIRECTORY}/sig.bin"
 assert_success "authenticate_data_detached"
-echo "cat ./test_data/plain.txt | gta-cli authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls  > ${TEST_DIRECTORY}/sig2.bin"
-cat ./test_data/plain.txt | "$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls  > "${TEST_DIRECTORY}/sig2.bin"
+echo "< ./test_data/plain.txt gta-cli authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls  > ${TEST_DIRECTORY}/sig2.bin"
+< ./test_data/plain.txt "$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_ec_default --prof=com.github.generic-trust-anchor-api.basic.tls  > "${TEST_DIRECTORY}/sig2.bin"
 assert_success "authenticate_data_detached"
 echo ""
 
@@ -231,7 +231,7 @@ echo "gta-cli personality_enumerate_application --app_name=gta-cli"
 assert_success "personality_enumerate_application"
 echo ""
 
-num_tests=$(($num_ok+$num_fails))
+num_tests=$((num_ok + num_fails))
 
 echo ""
 echo "SUMMARY:"
@@ -243,8 +243,8 @@ if [ $num_fails -gt 0 ]
 then
    echo ""
    echo "FAILED FUNCTIONS:"
-   for str in ${failed_functions[@]}; do  
-     echo "  " $str
+   for str in "${failed_functions[@]}"; do  
+     echo "  " "$str"
    done
    exit 1
 else
