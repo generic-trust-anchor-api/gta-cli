@@ -122,6 +122,8 @@ int pers_add_attribute(
     struct arguments * arguments,
     bool trusted);
 int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
+int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
+void init_ofilestream(myio_ofilestream_t * ofilestream);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -614,6 +616,37 @@ static bool create_folder(const char * folder_path)
     return ret;
 }
 
+/*
+ * Helper function to initialize an ifilestream. In casa data is not NULL,
+ * it should contain a filepath which we use as input, otherwise we read
+ * from stdin.
+ */
+int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream)
+{
+    gta_errinfo_t errinfo = GTA_ERROR_INTERNAL_ERROR;
+
+    if (NULL != data) {
+        if (!myio_open_ifilestream(ifilestream, data, &errinfo)) {
+            fprintf(stderr, "Cannot open file %s\n", data);
+            return EXIT_FAILURE;
+        }
+    } else {
+        ifilestream->file = stdin;
+        ifilestream->read = (gtaio_stream_read_t)myio_ifilestream_read;
+        ifilestream->eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/* Initializes ofilestream to stdout. */
+void init_ofilestream(myio_ofilestream_t * ofilestream)
+{
+    ofilestream->write = (gtaio_stream_write_t)myio_ofilestream_write;
+    ofilestream->finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
+    ofilestream->file = stdout;
+}
+
 int pers_add_attribute(
     gta_instance_handle_t h_inst,
     gta_context_handle_t h_ctx,
@@ -631,15 +664,8 @@ int pers_add_attribute(
         goto cleanup;
     }
 
-    if (NULL != arguments->attr_val) {
-        if (!myio_open_ifilestream(&istream_attr_val, arguments->attr_val, &errinfo)) {
-            fprintf(stderr, "Cannot open file %s\n", arguments->attr_val);
-            goto cleanup;
-        }
-    } else {
-        istream_attr_val.file = stdin;
-        istream_attr_val.read = (gtaio_stream_read_t)myio_ifilestream_read;
-        istream_attr_val.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
+    if (EXIT_SUCCESS != init_ifilestream(arguments->attr_val, &istream_attr_val)) {
+        goto cleanup;
     }
 
     h_ctx = gta_context_open(h_inst, arguments->pers, arguments->prof, &errinfo);
@@ -808,20 +834,11 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
-        myio_ofilestream_t ostream_sealed_data = {0};
-        ostream_sealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
-        ostream_sealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
-        ostream_sealed_data.file = stdout;
+        myio_ofilestream_t ostream_protected_data = {0};
+        init_ofilestream(&ostream_protected_data);
 
-        if (NULL != arguments.data) {
-            if (!myio_open_ifilestream(&istream, arguments.data, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                goto cleanup;
-            }
-        } else {
-            istream.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-            istream.file = stdin;
+        if (EXIT_SUCCESS != init_ifilestream(arguments.data, &istream)) {
+            goto cleanup;
         }
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
@@ -830,7 +847,7 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
-        if (!gta_seal_data(h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_sealed_data, &errinfo)) {
+        if (!gta_seal_data(h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_protected_data, &errinfo)) {
             fprintf(stderr, "gta_seal_data failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
         }
@@ -853,19 +870,10 @@ int main(int argc, char * argv[])
         }
 
         myio_ofilestream_t ostream_unsealed_data = {0};
-        ostream_unsealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
-        ostream_unsealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
-        ostream_unsealed_data.file = stdout;
+        init_ofilestream(&ostream_unsealed_data);
 
-        if (NULL != arguments.data) {
-            if (!myio_open_ifilestream(&istream, arguments.data, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                goto cleanup;
-            }
-        } else {
-            istream.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-            istream.file = stdin;
+        if (EXIT_SUCCESS != init_ifilestream(arguments.data, &istream)) {
+            goto cleanup;
         }
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
@@ -1017,9 +1025,7 @@ int main(int argc, char * argv[])
         }
 
         myio_ofilestream_t ostream_attr_value = {0};
-        ostream_attr_value.write = (gtaio_stream_write_t)myio_ofilestream_write;
-        ostream_attr_value.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
-        ostream_attr_value.file = stdout;
+        init_ofilestream(&ostream_attr_value);
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
         if (NULL == h_ctx) {
@@ -1112,20 +1118,11 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
-        myio_ofilestream_t ostream_sealed_data = {0};
-        ostream_sealed_data.write = (gtaio_stream_write_t)myio_ofilestream_write;
-        ostream_sealed_data.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
-        ostream_sealed_data.file = stdout;
+        myio_ofilestream_t ostream_seal = {0};
+        init_ofilestream(&ostream_seal);
 
-        if (arguments.data != NULL) {
-            if (!myio_open_ifilestream(&istream, arguments.data, &errinfo)) {
-                fprintf(stderr, "Cannot open file %s\n", arguments.data);
-                goto cleanup;
-            }
-        } else {
-            istream.read = (gtaio_stream_read_t)myio_ifilestream_read;
-            istream.eof = (gtaio_stream_eof_t)myio_ifilestream_eof;
-            istream.file = stdin;
+        if (EXIT_SUCCESS != init_ifilestream(arguments.data, &istream)) {
+            goto cleanup;
         }
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
@@ -1136,7 +1133,7 @@ int main(int argc, char * argv[])
         }
 
         if (!gta_authenticate_data_detached(
-                h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_sealed_data, &errinfo)) {
+                h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_seal, &errinfo)) {
             fprintf(stderr, "gta_authenticate_data_detached failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
         }
@@ -1159,9 +1156,7 @@ int main(int argc, char * argv[])
         }
 
         myio_ofilestream_t ostream_enrollment_request = {0};
-        ostream_enrollment_request.write = (gtaio_stream_write_t)myio_ofilestream_write;
-        ostream_enrollment_request.finish = (gtaio_stream_finish_t)myio_ofilestream_finish;
-        ostream_enrollment_request.file = stdout;
+        init_ofilestream(&ostream_enrollment_request);
 
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
 
