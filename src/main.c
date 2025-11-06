@@ -30,6 +30,7 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 /* List of all profiles supported by gta-cli */
 static char profiles_to_register[][MAXLEN_PROFILE] = {
     "ch.iec.30168.basic.local_data_protection",
+    "ch.iec.30168.basic.local_data_integrity_only",
     "com.github.generic-trust-anchor-api.basic.rsa",
     "com.github.generic-trust-anchor-api.basic.ec",
     "com.github.generic-trust-anchor-api.basic.tls",
@@ -68,6 +69,7 @@ enum functions {
     personality_remove_attribute,
     personality_attributes_enumerate,
     authenticate_data_detached,
+    verify_data_detached,
     personality_enroll,
     personality_remove,
     devicestate_transition,
@@ -101,6 +103,7 @@ struct arguments {
     char * attr_name;
     char * attr_val;
     char * data;
+    char * seal;
     t_ctx_attributes ctx_attributes;     /* list of context attributes for arguments --ctx_attr and --ctx_attr_file
                                          one attribute consists of a pair ATTR_TYPE=ATTR_VALUE
                                          ATTR_VALUE is the actual attribute value as string */
@@ -142,6 +145,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->attr_name = NULL;
     arguments->attr_val = NULL;
     arguments->data = NULL;
+    arguments->seal = NULL;
     arguments->ctx_attributes.num = 0;
     arguments->ctx_attributes.p_attr = NULL;
     arguments->ctx_attributes_bin.num = 0;
@@ -184,6 +188,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
         arguments->func = personality_attributes_enumerate;
     } else if (strcmp(argv[1], "authenticate_data_detached") == 0) {
         arguments->func = authenticate_data_detached;
+    } else if (strcmp(argv[1], "verify_data_detached") == 0) {
+        arguments->func = verify_data_detached;
     } else if (strcmp(argv[1], "personality_enroll") == 0) {
         arguments->func = personality_enroll;
     } else if (strcmp(argv[1], "personality_remove") == 0) {
@@ -226,6 +232,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             arguments->attr_val = argv[i] + 11;
         } else if (strncmp(argv[i], "--data=", 7) == 0) {
             arguments->data = argv[i] + 7;
+        } else if (strncmp(argv[i], "--seal=", 7) == 0) {
+            arguments->seal = argv[i] + 7;
         } else if (strncmp(argv[i], "--ctx_attr_file=", 16) == 0) {
             FILE * p_file_attributes = NULL;
             char str_temp[MAXLEN_ATTRIBUTE] = {0};
@@ -382,6 +390,8 @@ void show_help()
     printf("  personality_attributes_enumerate   enumerate all attributes belonging to a personality\n");
     printf("  authenticate_data_detached         calculate a cryptographic seal for the provided data according to the "
            "given profile and personality\n");
+    printf("  verify_data_detached               verify a cryptographic seal for the provided data according to the "
+           "profile and personality\n");
     printf("  personality_enroll                 create an enrollment request for a personality according to the given "
            "profile\n");
     printf("  personality_remove                 remove a personality\n");
@@ -494,6 +504,15 @@ void show_function_help(enum functions func)
         printf("  --prof=PROFILE           profile to use for the operation\n");
         printf(
             "  --data=FILE              data to be protected, if --data is not set the data will be read from stdin\n");
+        break;
+    case verify_data_detached:
+        printf("Usage: gta-cli verify_data_detached --options\n");
+        printf("Options:\n");
+        printf("  --pers=PERSONALITY_NAME  personality to use for the operation\n");
+        printf("  --prof=PROFILE           profile to use for the operation\n");
+        printf(
+            "  --data=FILE              data to be verified, if --data is not set the data will be read from stdin\n");
+        printf("  --seal=FILE              authentication seal to be verified\n");
         break;
     case personality_enroll:
         printf("Usage: gta-cli personality_enroll --options\n");
@@ -740,6 +759,7 @@ int main(int argc, char * argv[])
     gta_instance_handle_t h_inst = GTA_HANDLE_INVALID;
     gta_context_handle_t h_ctx = GTA_HANDLE_INVALID;
     myio_ifilestream_t istream = {0};
+    myio_ifilestream_t istream_seal = {0};
     gta_errinfo_t errinfo = 0;
 
     /* GTA instance used by the tests */
@@ -1148,6 +1168,46 @@ int main(int argc, char * argv[])
         }
         break;
     }
+    case verify_data_detached: {
+        if (NULL == arguments.pers || NULL == arguments.prof || NULL == arguments.seal) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        if (EXIT_SUCCESS != init_ifilestream(arguments.data, &istream)) {
+            goto cleanup;
+        }
+
+        if (EXIT_SUCCESS != init_ifilestream(arguments.seal, &istream_seal)) {
+            goto cleanup;
+        }
+
+        h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
+
+        if (NULL == h_ctx) {
+            fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        if (!gta_verify_data_detached(h_ctx, (gtaio_istream_t *)&istream, (gtaio_istream_t *)&istream_seal, &errinfo)) {
+            fprintf(stderr, "gta_verify_data_detached failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        if (!gta_context_close(h_ctx, &errinfo)) {
+            fprintf(stderr, "gta_context_close failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        if (arguments.data != NULL) {
+            myio_close_ifilestream(&istream, &errinfo);
+        }
+
+        myio_close_ifilestream(&istream_seal, &errinfo);
+
+        break;
+    }
     case personality_enroll: {
         if (NULL == arguments.pers || NULL == arguments.prof) {
             fprintf(stderr, "Invalid or missing function arguments\n");
@@ -1299,6 +1359,9 @@ int main(int argc, char * argv[])
 cleanup:
     if ((NULL != istream.file) && (stdin != istream.file)) {
         myio_close_ifilestream(&istream, &errinfo);
+    }
+    if (NULL != istream_seal.file) {
+        myio_close_ifilestream(&istream_seal, &errinfo);
     }
     free_ctx_attributes(&arguments.ctx_attributes);
     free_ctx_attributes(&arguments.ctx_attributes_bin);
