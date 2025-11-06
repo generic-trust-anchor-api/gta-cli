@@ -50,3 +50,27 @@ gta_cli = executable(
      install: true,
      install_dir: get_option('bindir')
 )
+
+prog_test_cli = find_program(meson.project_source_root()+'/test/test_cli.sh')
+test(
+    'test_cli',
+    prog_test_cli,
+    workdir : meson.project_source_root()+'/test',
+    env : [
+        'GTA_CLI_BINARY='+gta_cli.full_path(),
+        'TEST_DIRECTORY='+meson.project_build_root()+'/test'
+    ],
+    is_parallel : false
+)
+
+prog_test_opc = find_program(meson.project_source_root()+'/test/test_opc.sh')
+test(
+    'test_opc',
+    prog_test_opc,
+    workdir : meson.project_source_root()+'/test',
+    env : [
+        'GTA_CLI_BINARY='+gta_cli.full_path(),
+        'TEST_DIRECTORY='+meson.project_build_root()+'/test'
+    ],
+    is_parallel : false
+)

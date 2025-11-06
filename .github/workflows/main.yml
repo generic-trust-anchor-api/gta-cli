@@ -33,14 +33,13 @@ jobs:
           sudo ninja -C build install
       - name: Checkout gta-cli
         uses: actions/checkout@v4
-      - name: Build and install gta-cli
+      - name: Build gta-cli
         run: |
-          meson setup build
-          sudo ninja -C build install
+          meson setup build --werror
+          ninja -C build
       - name: Test gta-cli
         run: |
-          sudo ldconfig
-          cd test && ./test_cli.sh
+          ninja -C build test
 
   style-check:
     runs-on: ubuntu-latest
@@ -61,3 +60,16 @@ jobs:
         uses: fsfe/reuse-action@v6
         with:
           args: --include-submodules lint
+
+  
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gta-cli
+        uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: |
+          find . -name "*.sh" -print0 | xargs -0 shellcheck
+
