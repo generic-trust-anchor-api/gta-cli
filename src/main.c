@@ -34,6 +34,7 @@ static char profiles_to_register[][MAXLEN_PROFILE] = {
     "com.github.generic-trust-anchor-api.basic.rsa",
     "com.github.generic-trust-anchor-api.basic.ec",
     "com.github.generic-trust-anchor-api.basic.tls",
+    "com.github.generic-trust-anchor-api.basic.signature",
     "com.github.generic-trust-anchor-api.basic.jwt",
     "com.github.generic-trust-anchor-api.basic.enroll",
     "org.opcfoundation.ECC-nistP256"};
