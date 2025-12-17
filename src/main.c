@@ -7,6 +7,7 @@
 #include "streams.h"
 #include <dirent.h>
 #include <gta_api/gta_api.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,6 +76,7 @@ enum functions {
     personality_remove,
     devicestate_transition,
     devicestate_recede,
+    access_policy_simple,
     FUNC_UNKNOWN
 };
 
@@ -99,6 +101,8 @@ struct arguments {
     char * id_val;
     char * pers;
     char * prof;
+    gta_access_policy_handle_t h_auth_use;
+    gta_access_policy_handle_t h_auth_admin;
     char * pers_flag;
     char * attr_type;
     char * attr_name;
@@ -112,7 +116,9 @@ struct arguments {
                                          one attribute consists of a pair ATTR_TYPE=FILE
                                          FILE is the path to binary file with
                                          the actual attribute value as binary */
+    gta_access_policy_handle_t h_auth_recede;
     size_t * owner_lock_count;
+    char * descr_type;
 };
 
 /* Function prototypes */
@@ -125,7 +131,9 @@ int pers_add_attribute(
     gta_context_handle_t h_ctx,
     struct arguments * arguments,
     bool trusted);
+int parse_handle(const char * p_handle_string, enum functions func, gta_access_policy_handle_t * p_handle);
 int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
+int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_type_t * descr_type);
 int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
 void init_ofilestream(myio_ofilestream_t * ofilestream);
 
@@ -141,6 +149,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->id_val = NULL;
     arguments->pers = NULL;
     arguments->prof = NULL;
+    arguments->h_auth_use = GTA_HANDLE_INVALID;
+    arguments->h_auth_admin = GTA_HANDLE_INVALID;
     arguments->pers_flag = NULL;
     arguments->attr_type = NULL;
     arguments->attr_name = NULL;
@@ -151,7 +161,9 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->ctx_attributes.p_attr = NULL;
     arguments->ctx_attributes_bin.num = 0;
     arguments->ctx_attributes_bin.p_attr = NULL;
+    arguments->h_auth_recede = GTA_HANDLE_INVALID;
     arguments->owner_lock_count = NULL;
+    arguments->descr_type = NULL;
 
     /* Parse the arguments */
 
@@ -200,6 +212,9 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     } else if (strcmp(argv[1], "devicestate_recede") == 0) {
         arguments->func = devicestate_recede;
         b_options = false;
+    } else if (strcmp(argv[1], "access_policy_simple") == 0) {
+        arguments->func = access_policy_simple;
+        b_options = false;
     } else {
         fprintf(stderr, "Unknown argument: %s\n", argv[1]);
         show_help();
@@ -223,6 +238,14 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             arguments->pers = argv[i] + 7;
         } else if (strncmp(argv[i], "--prof=", 7) == 0) {
             arguments->prof = argv[i] + 7;
+        } else if (strncmp(argv[i], "--acc_pol_use=", 14) == 0) {
+            if (EXIT_FAILURE == parse_handle(argv[i] + 14, arguments->func, &arguments->h_auth_use)) {
+                return EXIT_FAILURE;
+            }
+        } else if (strncmp(argv[i], "--acc_pol_admin=", 16) == 0) {
+            if (EXIT_FAILURE == parse_handle(argv[i] + 16, arguments->func, &arguments->h_auth_admin)) {
+                return EXIT_FAILURE;
+            }
         } else if (strncmp(argv[i], "--pers_flag=", 12) == 0) {
             arguments->pers_flag = argv[i] + 12;
         } else if (strncmp(argv[i], "--attr_type=", 12) == 0) {
@@ -334,6 +357,10 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                 fprintf(stderr, "Memory allocation error\n");
                 return EXIT_FAILURE;
             }
+        } else if (strncmp(argv[i], "--acc_pol_recede=", 17) == 0) {
+            if (EXIT_FAILURE == parse_handle(argv[i] + 17, arguments->func, &arguments->h_auth_recede)) {
+                return EXIT_FAILURE;
+            }
         } else if (strncmp(argv[i], "--owner_lock_count=", 19) == 0) {
             char * p_endptr = NULL;
             /* Check if argument is missing (NULL-terminater after '=') */
@@ -355,6 +382,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
                 free(arguments->owner_lock_count);
                 return EXIT_FAILURE;
             }
+        } else if (strncmp(argv[i], "--descr_type=", 13) == 0) {
+            arguments->descr_type = argv[i] + 13;
         } else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
             exit(EXIT_SUCCESS);
@@ -398,6 +427,7 @@ void show_help()
     printf("  personality_remove                 remove a personality\n");
     printf("  devicestate_transition             advance into a new transition device state (push)\n");
     printf("  devicestate_recede                 recede into the previous transition device state (pop)\n");
+    printf("  access_policy_simple               get handle for a simple (static) access policy\n");
 
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register) / sizeof(profiles_to_register[0])); ++i) {
@@ -424,6 +454,10 @@ void show_function_help(enum functions func)
         printf("  --app_name=APPLICATION_NAME  application defined filter criteria to discover the personality using "
                "personality_enumerate_application\n");
         printf("  --prof=PROFILE_NAME          profile indicating a type and format of the personality\n");
+        printf("  [--acc_pol_use=HANDLE]       access policy defining usage of the personality [default: initial "
+               "access policy]\n");
+        printf("  [--acc_pol_admin=HANDLE]     access policy defining administration of the personality [default: "
+               "initial access policy]\n");
         break;
     case seal_data:
         printf("Usage: gta-cli seal_data --options\n");
@@ -542,6 +576,8 @@ void show_function_help(enum functions func)
     case devicestate_transition:
         printf("Usage: gta-cli devicestate_transition --options\n");
         printf("Options:\n");
+        printf("  --acc_pol_recede=HANDLE               access policy defining authentication required to run "
+               "devicestate_recede\n");
         printf(
             "  --owner_lock_count=OWNER_LOCK_COUNT   counter to restrict the assignment of recede access policies\n");
         printf("                                        with authentication by physical access for future device "
@@ -550,6 +586,12 @@ void show_function_help(enum functions func)
     case devicestate_recede:
         printf("Usage: gta-cli devicestate_recede\n");
         printf("No options\n");
+        break;
+    case access_policy_simple:
+        printf("Usage: gta-cli access_policy_simple\n");
+        printf("Options:\n");
+        printf(" [--descr_type={INITIAL|BASIC|PHYSICAL_PRESENCE}]   type of single access descriptor that is used to "
+               "setup the simple access policy [default: INITIAL]\n");
         break;
 
     default:
@@ -718,6 +760,21 @@ cleanup:
     return ret;
 }
 
+int parse_handle(const char * p_handle_string, enum functions func, gta_access_policy_handle_t * p_handle)
+{
+    int ret = EXIT_SUCCESS;
+    if (NULL != p_handle_string) {
+        uintptr_t int_val = (uintptr_t)strtoull(p_handle_string, NULL, 10);
+        *p_handle = (void *)int_val;
+    }
+    if (NULL == p_handle_string || NULL == *p_handle) {
+        fprintf(stderr, "Invalid policy handle %s\n", p_handle_string);
+        show_function_help(func);
+        ret = EXIT_FAILURE;
+    }
+    return ret;
+}
+
 int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag)
 {
     int ret = EXIT_SUCCESS;
@@ -728,6 +785,25 @@ int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_fla
             *pers_flag = GTA_PERSONALITY_ENUM_ACTIVE;
         } else if (!strcmp(arguments->pers_flag, "INACTIVE")) {
             *pers_flag = GTA_PERSONALITY_ENUM_INACTIVE;
+        } else {
+            fprintf(stderr, "Invalid function arguments\n");
+            show_function_help(arguments->func);
+            ret = EXIT_FAILURE;
+        }
+    }
+    return ret;
+}
+
+int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_type_t * descr_type)
+{
+    int ret = EXIT_SUCCESS;
+    if (NULL != arguments->descr_type) {
+        if (!strcmp(arguments->descr_type, "INITIAL")) {
+            *descr_type = GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL;
+        } else if (!strcmp(arguments->descr_type, "BASIC")) {
+            *descr_type = GTA_ACCESS_DESCRIPTOR_TYPE_BASIC_TOKEN;
+        } else if (!strcmp(arguments->descr_type, "PHYSICAL_PRESENCE")) {
+            *descr_type = GTA_ACCESS_DESCRIPTOR_TYPE_PHYSICAL_PRESENCE_TOKEN;
         } else {
             fprintf(stderr, "Invalid function arguments\n");
             show_function_help(arguments->func);
@@ -826,12 +902,25 @@ int main(int argc, char * argv[])
         gta_access_policy_handle_t h_auth_admin = GTA_HANDLE_INVALID;
         struct gta_protection_properties_t protection_properties = {0};
 
-        h_auth_use = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL, &errinfo);
-        if (h_auth_use == NULL) {
-            fprintf(stderr, "h_auth_use failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
+        gta_access_policy_handle_t h_auth_initial = GTA_HANDLE_INVALID;
+        if ((GTA_HANDLE_INVALID == arguments.h_auth_use) || (GTA_HANDLE_INVALID == arguments.h_auth_admin)) {
+            h_auth_initial = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL, &errinfo);
+            if (h_auth_initial == NULL) {
+                fprintf(stderr, "gta_access_policy_simple failed with ERROR_CODE %ld\n", errinfo);
+                goto cleanup;
+            }
         }
-        h_auth_admin = h_auth_use;
+        if (GTA_HANDLE_INVALID != arguments.h_auth_use) {
+            h_auth_use = arguments.h_auth_use;
+        } else {
+            h_auth_use = h_auth_initial;
+        }
+
+        if (GTA_HANDLE_INVALID != arguments.h_auth_admin) {
+            h_auth_admin = arguments.h_auth_admin;
+        } else {
+            h_auth_admin = h_auth_initial;
+        }
 
         if (!gta_personality_create(
                 h_inst,
@@ -1308,23 +1397,13 @@ int main(int argc, char * argv[])
     }
     case devicestate_transition: {
 
-        if (NULL == arguments.owner_lock_count) {
+        if (NULL == arguments.owner_lock_count || GTA_HANDLE_INVALID == arguments.h_auth_recede) {
             fprintf(stderr, "Invalid or missing function arguments\n");
             show_function_help(arguments.func);
             goto cleanup;
         }
 
-        gta_access_policy_handle_t h_auth_recede = GTA_HANDLE_INVALID;
-
-        h_auth_recede = gta_access_policy_simple(h_inst, GTA_ACCESS_DESCRIPTOR_TYPE_PHYSICAL_PRESENCE_TOKEN, &errinfo);
-
-        if (GTA_HANDLE_INVALID == h_auth_recede) {
-            fprintf(stderr, "gta_access_policy_simple failed with ERROR_CODE %ld\n", errinfo);
-            free(arguments.owner_lock_count);
-            goto cleanup;
-        }
-
-        if (!gta_devicestate_transition(h_inst, h_auth_recede, *arguments.owner_lock_count, &errinfo)) {
+        if (!gta_devicestate_transition(h_inst, arguments.h_auth_recede, *arguments.owner_lock_count, &errinfo)) {
             fprintf(stderr, "gta_devicestate_transition failed with ERROR_CODE %ld\n", errinfo);
             free(arguments.owner_lock_count);
             goto cleanup;
@@ -1346,6 +1425,25 @@ int main(int argc, char * argv[])
             fprintf(stderr, "gta_devicestate_recede failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
         }
+
+        break;
+    }
+
+    case access_policy_simple: {
+
+        gta_access_descriptor_type_t access_descriptor_type = GTA_ACCESS_DESCRIPTOR_TYPE_INITIAL;
+        gta_access_policy_handle_t h_simple = GTA_HANDLE_INVALID;
+
+        if (EXIT_SUCCESS != parse_descr_type(&arguments, &access_descriptor_type)) {
+            goto cleanup;
+        }
+
+        h_simple = gta_access_policy_simple(h_inst, access_descriptor_type, &errinfo);
+        if (GTA_HANDLE_INVALID == h_simple) {
+            fprintf(stderr, "gta_access_policy_simple failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+        printf("%" PRIuPTR "\n", (uintptr_t)h_simple);
 
         break;
     }
