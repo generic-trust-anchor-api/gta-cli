@@ -481,17 +481,18 @@ void show_function_help(enum functions func)
     case personality_enumerate:
         printf("Usage: gta-cli personality_enumerate --options\n");
         printf("Options:\n");
-        printf("  --id_val=IDENTIFIER_VALUE         identifier for which the available personalities are enumerated\n");
         printf(
-            "  --pers_flag={ALL|ACTIVE|INACTIVE} select between active and deactivated personalities [default: ALL]\n");
+            "  --id_val=IDENTIFIER_VALUE           identifier for which the available personalities are enumerated\n");
+        printf("  [--pers_flag={ALL|ACTIVE|INACTIVE}] select between active and deactivated personalities [default: "
+               "ALL]\n");
         break;
     case personality_enumerate_application:
         printf("Usage: gta-cli personality_enumerate_application --options\n");
         printf("Options:\n");
         printf(
-            "  --app_name=APPLICATION_NAME       application for which the available personalities are enumerated\n");
-        printf(
-            "  --pers_flag={ALL|ACTIVE|INACTIVE} select between active and deactivated personalities [default: ALL]\n");
+            "  --app_name=APPLICATION_NAME         application for which the available personalities are enumerated\n");
+        printf("  [--pers_flag={ALL|ACTIVE|INACTIVE}] select between active and deactivated personalities [default: "
+               "ALL]\n");
         break;
     case personality_add_attribute:
         printf("Usage: gta-cli personality_add_attribute --options\n");
