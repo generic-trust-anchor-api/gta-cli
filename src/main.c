@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <gta_api/gta_api.h>
 #include <inttypes.h>
+#include <openssl/evp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,6 +78,10 @@ enum functions {
     devicestate_transition,
     devicestate_recede,
     access_policy_simple,
+    access_token_get_basic,
+    access_token_get_issuing,
+    access_token_get_physical_presence,
+    access_token_revoke,
     FUNC_UNKNOWN
 };
 
@@ -119,6 +124,8 @@ struct arguments {
     gta_access_policy_handle_t h_auth_recede;
     size_t * owner_lock_count;
     char * descr_type;
+    char * acc_tok;
+    char * usage;
 };
 
 /* Function prototypes */
@@ -134,8 +141,11 @@ int pers_add_attribute(
 int parse_handle(const char * p_handle_string, enum functions func, gta_access_policy_handle_t * p_handle);
 int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_flags_t * pers_flag);
 int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_type_t * descr_type);
+int parse_usage(const struct arguments * arguments, gta_access_token_usage_t * usage);
 int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
 void init_ofilestream(myio_ofilestream_t * ofilestream);
+int encode_b64(unsigned char * p_token, size_t in_len, unsigned char ** pp_b64);
+int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -164,6 +174,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->h_auth_recede = GTA_HANDLE_INVALID;
     arguments->owner_lock_count = NULL;
     arguments->descr_type = NULL;
+    arguments->acc_tok = NULL;
+    arguments->usage = NULL;
 
     /* Parse the arguments */
 
@@ -215,6 +227,16 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     } else if (strcmp(argv[1], "access_policy_simple") == 0) {
         arguments->func = access_policy_simple;
         b_options = false;
+    } else if (strcmp(argv[1], "access_token_get_basic") == 0) {
+        arguments->func = access_token_get_basic;
+    } else if (strcmp(argv[1], "access_token_get_issuing") == 0) {
+        arguments->func = access_token_get_issuing;
+        b_options = false;
+    } else if (strcmp(argv[1], "access_token_get_physical_presence") == 0) {
+        arguments->func = access_token_get_physical_presence;
+        b_options = false;
+    } else if (strcmp(argv[1], "access_token_revoke") == 0) {
+        arguments->func = access_token_revoke;
     } else {
         fprintf(stderr, "Unknown argument: %s\n", argv[1]);
         show_help();
@@ -384,6 +406,10 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             }
         } else if (strncmp(argv[i], "--descr_type=", 13) == 0) {
             arguments->descr_type = argv[i] + 13;
+        } else if (strncmp(argv[i], "--acc_tok=", 10) == 0) {
+            arguments->acc_tok = argv[i] + 10;
+        } else if (strncmp(argv[i], "--usage=", 8) == 0) {
+            arguments->usage = argv[i] + 8;
         } else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
             exit(EXIT_SUCCESS);
@@ -429,6 +455,24 @@ void show_help()
     printf("  devicestate_recede                 recede into the previous transition device state (pop)\n");
     printf("  access_policy_simple               get handle for a simple (static) access policy\n");
 
+    printf(
+        "  access_token_get_basic             get a basic access token as base64 encoded string enabling access to\n");
+    printf("                                     privileged operations with personalities and device states\n");
+    printf("  access_token_get_issuing           get issuing token as base64 encoded string to enable the caller to "
+           "issue basic access tokens\n");
+    printf("                                     it can only be called once for every power on cycle of the device "
+           "hosting GTA API\n");
+    printf("                                     after this function has completed, any additional attempt to call the "
+           "function fails\n");
+    printf("                                     whichever process has access to the returned access token can issue "
+           "arbitrary basic access tokens with access_token_get_basic\n");
+    printf("  access_token_get_physical_presence get physical presence access token as base64 encoded string to be "
+           "used later to prove physical presence\n");
+    printf("                                     can only be called once for every power-up cycle of the device "
+           "hosting GTA API\n");
+    printf("                                     after either this function or access_token_get_issuing has "
+           "completed, any additional attempt to call this function fails\n");
+    printf("  access_token_revoke                invalidate an access token\n");
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register) / sizeof(profiles_to_register[0])); ++i) {
         printf("  %s\n", profiles_to_register[i]);
@@ -593,6 +637,27 @@ void show_function_help(enum functions func)
         printf("Options:\n");
         printf(" [--descr_type={INITIAL|BASIC|PHYSICAL_PRESENCE}]   type of single access descriptor that is used to "
                "setup the simple access policy [default: INITIAL]\n");
+        break;
+    case access_token_get_basic:
+        printf("Usage: gta-cli access_token_get_basic\n");
+        printf("  --acc_tok=GRANTING_ACCESS_TOKEN    base64 encoded token granting the privilege to issue "
+               "additional basic access tokens\n");
+        printf("                                     call access_token_get_issuing before\n");
+        printf("  --pers=PERSONALITY_NAME            name of the personality for which this token shall be "
+               "valid\n");
+        printf("  [--usage = {USE|ADMIN}]            type of usage granted by the token [default:USE]\n");
+        break;
+    case access_token_get_issuing:
+        printf("Usage: gta-cli access_token_get_issuing\n");
+        printf("No options\n");
+        break;
+    case access_token_get_physical_presence:
+        printf("Usage: gta-cli access_token_get_physical_presence\n");
+        printf("No options\n");
+        break;
+    case access_token_revoke:
+        printf("Usage: gta-cli access_token_revoke\n");
+        printf("  --acc_tok=ACCESS_TOKEN    base64 encoded access token to be invalidated\n");
         break;
 
     default:
@@ -812,6 +877,105 @@ int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_t
         }
     }
     return ret;
+}
+
+int parse_usage(const struct arguments * arguments, gta_access_token_usage_t * usage)
+{
+    int ret = EXIT_SUCCESS;
+    if (NULL != arguments->usage) {
+        if (!strcmp(arguments->usage, "USE")) {
+            *usage = GTA_ACCESS_TOKEN_USAGE_USE;
+        } else if (!strcmp(arguments->usage, "ADMIN")) {
+            *usage = GTA_ACCESS_TOKEN_USAGE_ADMIN;
+        } else if (!strcmp(arguments->usage, "RECEDE")) {
+            *usage = GTA_ACCESS_TOKEN_USAGE_RECEDE;
+        } else {
+            fprintf(stderr, "Invalid function arguments\n");
+            show_function_help(arguments->func);
+            ret = EXIT_FAILURE;
+        }
+    }
+    return ret;
+}
+
+int encode_b64(unsigned char * p_token, size_t in_len, unsigned char ** pp_b64)
+{
+    if (NULL == pp_b64) {
+        return EXIT_FAILURE;
+    }
+
+    /* calculate length for base64 string*/
+    size_t out_len = 4 * ((in_len + 2) / 3);
+
+    *pp_b64 = malloc(out_len + 1);
+    if (NULL == *pp_b64) {
+        return EXIT_FAILURE;
+    }
+
+    int written = EVP_EncodeBlock(*pp_b64, (unsigned char *)p_token, (int)in_len);
+    if (written <= 0) {
+        free(*pp_b64);
+        return EXIT_FAILURE;
+    }
+    (*pp_b64)[written] = '\0';
+
+    return EXIT_SUCCESS;
+}
+
+int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len)
+{
+    if (p_b64 == NULL || pp_bytes == NULL || p_out_len == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    // Leere Eingabe: nichts zu decodieren
+    if (in_len == 0) {
+        *pp_bytes = NULL;
+        *p_out_len = 0;
+        return EXIT_SUCCESS;
+    }
+
+    // Base64 muss in der Regel eine Länge haben, die ein Vielfaches von 4 ist
+    if (in_len % 4 != 0) {
+        return EXIT_FAILURE;
+    }
+
+    // Maximale Ausgabelänge: 3 Bytes pro 4 Base64-Zeichen
+    size_t alloc_len = 3 * (in_len / 4);
+    unsigned char * buf = (unsigned char *)malloc(alloc_len);
+    if (buf == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    // EVP_DecodeBlock schreibt bis zu alloc_len Bytes und gibt die Anzahl zurück (oder -1 bei Fehler)
+    int written = EVP_DecodeBlock(buf, p_b64, (int)in_len);
+    if (written < 0) {
+        free(buf);
+        return EXIT_FAILURE;
+    }
+
+    // Korrektur der Länge basierend auf Padding ('=' am Ende)
+    size_t pad = 0;
+    if (in_len >= 1 && p_b64[in_len - 1] == '=')
+        pad++;
+    if (in_len >= 2 && p_b64[in_len - 2] == '=')
+        pad++;
+
+    size_t out_len = (size_t)written - pad;
+
+    // Optional: Puffer auf exakte Größe schrumpfen
+    unsigned char * shrunk = (unsigned char *)realloc(buf, out_len);
+    if (shrunk != NULL || out_len == 0) {
+        // Wenn out_len==0, kann realloc NULL zurückgeben; unser buf ist trotzdem freigegeben,
+        // daher weisen wir nur zu, wenn shrunk != NULL.
+        if (shrunk != NULL) {
+            buf = shrunk;
+        }
+    }
+
+    *pp_bytes = buf;
+    *p_out_len = out_len;
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char * argv[])
@@ -1424,6 +1588,131 @@ int main(int argc, char * argv[])
 
         if (!gta_devicestate_recede(h_inst, physical_presence_token, &errinfo)) {
             fprintf(stderr, "gta_devicestate_recede failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        break;
+    }
+    case access_token_get_basic: {
+
+        if ((NULL == arguments.acc_tok) || (NULL == arguments.pers)) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        gta_access_token_t basic_token;
+        gta_access_token_t granting_token;
+        gta_access_token_usage_t usage = GTA_ACCESS_TOKEN_USAGE_USE;
+
+        if (EXIT_SUCCESS != parse_usage(&arguments, &usage)) {
+            goto cleanup;
+        }
+
+        unsigned char * p_grant_token = NULL;
+        size_t decoded_len = 0;
+        if (EXIT_SUCCESS !=
+            decode_b64(
+                (const unsigned char *)arguments.acc_tok, strlen(arguments.acc_tok), &p_grant_token, &decoded_len)) {
+            fprintf(stderr, "decode_b64 failed\n");
+            goto cleanup;
+        }
+
+        if (decoded_len != sizeof(granting_token)) {
+            fprintf(stderr, "access token not valid\n");
+            goto cleanup;
+        }
+
+        memcpy(granting_token, p_grant_token, decoded_len);
+        free(p_grant_token);
+
+        if (!gta_access_token_get_basic(h_inst, granting_token, arguments.pers, usage, basic_token, &errinfo)) {
+            fprintf(stderr, "access_token_get_basic failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        unsigned char * p_token_b64 = NULL;
+
+        if (EXIT_FAILURE == encode_b64((unsigned char *)basic_token, sizeof(basic_token), &p_token_b64)) {
+            fprintf(stderr, "encode_b64 failed\n");
+            goto cleanup;
+        }
+        printf("%s\n", (char *)p_token_b64);
+        free(p_token_b64);
+
+        break;
+    }
+
+    case access_token_get_issuing: {
+
+        gta_access_token_t issuing_token;
+
+        if (!gta_access_token_get_issuing(h_inst, issuing_token, &errinfo)) {
+            fprintf(stderr, "gta_access_token_get_issuing failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        unsigned char * p_token_b64 = NULL;
+
+        if (EXIT_FAILURE == encode_b64((unsigned char *)issuing_token, sizeof(issuing_token), &p_token_b64)) {
+            fprintf(stderr, "encode_b64 failed\n");
+            goto cleanup;
+        }
+        printf("%s\n", (char *)p_token_b64);
+        free(p_token_b64);
+
+        break;
+    }
+
+    case access_token_get_physical_presence: {
+
+        gta_access_token_t physical_presence_token;
+        if (!gta_access_token_get_physical_presence(h_inst, physical_presence_token, &errinfo)) {
+            fprintf(stderr, "gta_access_token_get_physical_presence failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        unsigned char * p_token_b64 = NULL;
+
+        if (EXIT_FAILURE ==
+            encode_b64((unsigned char *)physical_presence_token, sizeof(physical_presence_token), &p_token_b64)) {
+            fprintf(stderr, "encode_b64 failed\n");
+            goto cleanup;
+        }
+        printf("%s\n", (char *)p_token_b64);
+        free(p_token_b64);
+
+        break;
+    }
+
+    case access_token_revoke: {
+
+        if (NULL == arguments.acc_tok) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        gta_access_token_t access_token;
+
+        unsigned char * p_token = NULL;
+        size_t decoded_len = 0;
+        if (EXIT_SUCCESS !=
+            decode_b64((const unsigned char *)arguments.acc_tok, strlen(arguments.acc_tok), &p_token, &decoded_len)) {
+            fprintf(stderr, "decode_b64 failed\n");
+            goto cleanup;
+        }
+
+        if (decoded_len != sizeof(access_token)) {
+            fprintf(stderr, "access token not valid\n");
+            goto cleanup;
+        }
+
+        memcpy(access_token, p_token, decoded_len);
+        free(p_token);
+
+        if (!gta_access_token_revoke(h_inst, access_token, &errinfo)) {
+            fprintf(stderr, "gta_access_token_revoke failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
         }
 
