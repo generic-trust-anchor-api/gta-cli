@@ -41,20 +41,37 @@ assert_error () {
   fi
 }
 
+
 echo "gta-cli devicestate_recede"
 "$GTA_CLI_BINARY" devicestate_recede
 assert_success "devicestate_recede"
 
-echo "gta-cli devicestate_transition --owner_lock_count=5"
-"$GTA_CLI_BINARY" devicestate_transition --owner_lock_count=5
+echo "gta-cli access_policy_simple --descr_type=INVALID"
+"$("$GTA_CLI_BINARY" access_policy_simple --descr_type=INVALID)"
+assert_error "access_policy_simple"
+echo "gta-cli access_policy_simple"
+h_pol_default="$("$GTA_CLI_BINARY" access_policy_simple)"
+assert_success "access_policy_simple"
+echo "gta-cli access_policy_simple --descr_type=INITIAL"
+h_pol_initial="$("$GTA_CLI_BINARY" access_policy_simple --descr_type=INITIAL)"
+assert_success "access_policy_simple"
+echo "gta-cli access_policy_simple --descr_type=BASIC"
+h_pol_basic="$("$GTA_CLI_BINARY" access_policy_simple --descr_type=BASIC)"
+assert_success "access_policy_simple"
+echo "gta-cli access_policy_simple --descr_type=PHYSICAL_PRESENCE"
+h_pol_physical="$("$GTA_CLI_BINARY" access_policy_simple --descr_type=PHYSICAL_PRESENCE)"
+assert_success "access_policy_simple"
+
+echo "gta-cli devicestate_transition --acc_pol_recede=$h_pol_physical -owner_lock_count=5"
+"$GTA_CLI_BINARY" devicestate_transition --acc_pol_recede="$h_pol_physical" --owner_lock_count=5
 assert_success "devicestate_transition"
 
 echo "gta-cli devicestate_recede"
 "$GTA_CLI_BINARY" devicestate_recede
 assert_success "devicestate_recede"
 
-echo "gta-cli devicestate_transition --owner_lock_count=5"
-"$GTA_CLI_BINARY" devicestate_transition --owner_lock_count=5
+echo "gta-cli devicestate_transition --acc_pol_recede=$h_pol_physical --owner_lock_count=5"
+"$GTA_CLI_BINARY" devicestate_transition --acc_pol_recede="$h_pol_physical" --owner_lock_count=5
 assert_success "devicestate_transition"
 echo ""
 
@@ -71,14 +88,23 @@ echo "gta-cli identifier_enumerate"
 assert_success "identifier_enumerate"
 echo ""
 
-echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_seal_data --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
-"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_seal_data --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_seal_data --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use=$h_pol_initial --acc_pol_admin=$h_pol_initial"
+"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_seal_data --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use="$h_pol_initial" --acc_pol_admin="$h_pol_initial"
 assert_success "personality_create"
-echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_dummy_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
-"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_dummy_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_basic --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use=$h_pol_basic --acc_pol_admin=$h_pol_basic"
+"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_basic --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use="$h_pol_basic" --acc_pol_admin="$h_pol_basic"
 assert_success "personality_create"
-echo "gta-cli personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_3 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
-"$GTA_CLI_BINARY" personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_3 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_physical --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use=$h_pol_physical --acc_pol_admin=$h_pol_physical"
+"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_physical --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use="$h_pol_physical" --acc_pol_admin="$h_pol_physical"
+assert_error "personality_create"
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_physical_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use=$h_pol_physical --acc_pol_admin=$h_pol_initial"
+"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_physical_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use="$h_pol_physical" --acc_pol_admin="$h_pol_initial"
+assert_error "personality_create"
+echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_dummy_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use=$h_pol_initial"
+"$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_dummy_2 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_use="$h_pol_initial"
+assert_success "personality_create"
+echo "gta-cli personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_3 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_admin=$h_pol_default"
+"$GTA_CLI_BINARY" personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_3 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection --acc_pol_admin="$h_pol_default"
 assert_success "personality_create"
 echo "gta-cli personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_4 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
 "$GTA_CLI_BINARY" personality_create --id_val=f81d4fae-7dec-11d0-a765-00a0c91e6bf6 --pers=test_pers_dummy_4 --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection
@@ -125,6 +151,10 @@ echo "gta-cli unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.l
 "$GTA_CLI_BINARY" unseal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data="${TEST_DIRECTORY}/out.enc"
 assert_success "unseal_data"
 echo ""
+
+echo "gta-cli seal_data --pers=test_pers_basic --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > ${TEST_DIRECTORY}/out.enc"
+"$GTA_CLI_BINARY" seal_data --pers=test_pers_basic --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > "${TEST_DIRECTORY}out.enc"
+assert_error "seal_data"
 
 echo "gta-cli authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > ${TEST_DIRECTORY}/out.icv"
 "$GTA_CLI_BINARY" authenticate_data_detached --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_integrity_only --data=./test_data/plain.txt > "${TEST_DIRECTORY}/out.icv"
@@ -234,8 +264,8 @@ assert_success "personality_remove"
 assert_error "personality_remove"
 echo ""
 
-echo "gta-cli devicestate_transition --owner_lock_count=5"
-"$GTA_CLI_BINARY" devicestate_transition --owner_lock_count=5
+echo "gta-cli devicestate_transition --acc_pol_recede=$h_pol_physical --owner_lock_count=5"
+"$GTA_CLI_BINARY" devicestate_transition --acc_pol_recede="$h_pol_physical" --owner_lock_count=5
 assert_success "devicestate_transition"
 
 echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_devicestates --app_name=gta-cli --prof=ch.iec.30168.basic.local_data_protection"
