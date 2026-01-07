@@ -147,7 +147,7 @@ int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
 void init_ofilestream(myio_ofilestream_t * ofilestream);
 int encode_b64(const unsigned char * p_token, size_t in_len, unsigned char ** pp_b64);
 int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len);
-int decode_b64_access_token(char * p_acc_tok, gta_access_token_t acc_tok);
+int decode_b64_access_token(const char * p_acc_tok, gta_access_token_t acc_tok);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -510,6 +510,7 @@ void show_function_help(enum functions func)
         printf("  --pers=PERSONALITY_NAME  personality to use for the operation\n");
         printf("  --prof=PROFILE_NAME      profile to use for the operation\n");
         printf("  [--data=FILE]            data to be sealed, if --data is not set data will be read from stdin\n");
+        printf("  [--acc_tok=ACCESS_TOKEN] base64 encoded access token to authorize usage of the personality\n");
         break;
     case unseal_data:
         printf("Usage: gta-cli unseal_data --options\n");
@@ -517,6 +518,7 @@ void show_function_help(enum functions func)
         printf("  --pers=PERSONALITY_NAME  personality to use for the operation\n");
         printf("  --prof=PROFILE_NAME      profile to use for the operation\n");
         printf("  [--data=FILE]            data to be unsealed, if --data is not set data will be read from stdin\n");
+        printf("  [--acc_tok=ACCESS_TOKEN] base64 encoded access token to authorize usage of the personality\n");
         break;
     case identifier_enumerate:
         printf("Usage: gta-cli identifier_enumerate --options\n");
@@ -558,6 +560,7 @@ void show_function_help(enum functions func)
         printf("  --attr_name=ATTRIBUTE_NAME  name of the trusted attribute\n");
         printf("  [--attr_val=FILE]           value for the trusted attribute, if --attr_val is not set the value will "
                "be read from stdin\n");
+        printf("  [--acc_tok=ACCESS_TOKEN]      base64 encoded admin access token for the personality\n");
         break;
     case personality_get_attribute:
         printf("Usage: gta-cli personality_get_attribute --options\n");
@@ -585,6 +588,7 @@ void show_function_help(enum functions func)
         printf("  --prof=PROFILE           profile to use for the operation\n");
         printf(
             "  --data=FILE              data to be protected, if --data is not set the data will be read from stdin\n");
+        printf("  [--acc_tok=ACCESS_TOKEN] base64 encoded access token to authorize usage of the personality\n");
         break;
     case verify_data_detached:
         printf("Usage: gta-cli verify_data_detached --options\n");
@@ -632,7 +636,7 @@ void show_function_help(enum functions func)
     case devicestate_recede:
         printf("Usage: gta-cli devicestate_recede\n");
         printf("Options:\n");
-        printf("  --acc_tok=ACCESS_TOKEN	base64 encoded access token to authenticate the recede operation");
+        printf("  --acc_tok=ACCESS_TOKEN     base64 encoded access token to authorize the recede operation");
         break;
     case access_policy_simple:
         printf("Usage: gta-cli access_policy_simple\n");
@@ -805,6 +809,16 @@ int pers_add_attribute(
     }
 
     if (trusted) {
+        if (NULL != arguments->acc_tok) {
+            gta_access_token_t add_trusted_token = {0};
+            if (EXIT_SUCCESS != decode_b64_access_token((const char *)arguments->acc_tok, add_trusted_token)) {
+                goto cleanup;
+            }
+            if (true != gta_context_auth_set_access_token(h_ctx, add_trusted_token, &errinfo)) {
+                fprintf(stderr, "gta_context_auth_set_access_token failed with %ld\n", errinfo);
+                goto cleanup;
+            }
+        }
         if (!gta_personality_add_trusted_attribute(
                 h_ctx, arguments->attr_type, arguments->attr_name, (gtaio_istream_t *)&istream_attr_val, &errinfo)) {
             fprintf(stderr, "gta_personality_add_attribute failed with ERROR_CODE %ld\n", errinfo);
@@ -971,7 +985,7 @@ int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_b
     return EXIT_SUCCESS;
 }
 
-int decode_b64_access_token(char * p_acc_tok, gta_access_token_t acc_tok)
+int decode_b64_access_token(const char * p_acc_tok, gta_access_token_t acc_tok)
 {
     int ret = EXIT_FAILURE;
     unsigned char * p_access_token = NULL;
@@ -1140,6 +1154,19 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
+        if (NULL != arguments.acc_tok) {
+            gta_access_token_t seal_token;
+
+            if (EXIT_SUCCESS != decode_b64_access_token((const char *)arguments.acc_tok, seal_token)) {
+                goto cleanup;
+            }
+
+            if (true != gta_context_auth_set_access_token(h_ctx, seal_token, &errinfo)) {
+                fprintf(stderr, "gta_context_auth_set_access_token failed with %ld\n", errinfo);
+                goto cleanup;
+            }
+        }
+
         if (!gta_seal_data(h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_protected_data, &errinfo)) {
             fprintf(stderr, "gta_seal_data failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
@@ -1174,6 +1201,18 @@ int main(int argc, char * argv[])
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
+        }
+
+        if (NULL != arguments.acc_tok) {
+            gta_access_token_t unseal_token;
+            if (EXIT_SUCCESS != decode_b64_access_token((const char *)arguments.acc_tok, unseal_token)) {
+                goto cleanup;
+            }
+
+            if (true != gta_context_auth_set_access_token(h_ctx, unseal_token, &errinfo)) {
+                fprintf(stderr, "gta_context_auth_set_access_token failed with %ld\n", errinfo);
+                goto cleanup;
+            }
         }
 
         if (!gta_unseal_data(h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_unsealed_data, &errinfo)) {
@@ -1425,6 +1464,19 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
+        if (NULL != arguments.acc_tok) {
+            gta_access_token_t authenticate_data_token;
+
+            if (EXIT_SUCCESS != decode_b64_access_token((const char *)arguments.acc_tok, authenticate_data_token)) {
+                goto cleanup;
+            }
+
+            if (true != gta_context_auth_set_access_token(h_ctx, authenticate_data_token, &errinfo)) {
+                fprintf(stderr, "gta_context_auth_set_access_token failed with %ld\n", errinfo);
+                goto cleanup;
+            }
+        }
+
         if (!gta_authenticate_data_detached(
                 h_ctx, (gtaio_istream_t *)&istream, (gtaio_ostream_t *)&ostream_seal, &errinfo)) {
             fprintf(stderr, "gta_authenticate_data_detached failed with ERROR_CODE %ld\n", errinfo);
@@ -1633,7 +1685,7 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
-        if (EXIT_SUCCESS != decode_b64_access_token(arguments.acc_tok, granting_token)) {
+        if (EXIT_SUCCESS != decode_b64_access_token((const char *)arguments.acc_tok, granting_token)) {
             goto cleanup;
         }
 
