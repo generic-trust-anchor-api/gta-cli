@@ -41,9 +41,10 @@ assert_error () {
   fi
 }
 
+ACCESSTOKEN_DUMMY=GOPjvJByzafr+5pZFdH0sRTgkQURbj34ZMsCw2ozEVc=
 
-echo "gta-cli devicestate_recede"
-"$GTA_CLI_BINARY" devicestate_recede
+echo "gta-cli devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY"
+"$GTA_CLI_BINARY" devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY
 assert_success "devicestate_recede"
 
 echo "gta-cli access_policy_simple --descr_type=INVALID"
@@ -66,8 +67,8 @@ echo "gta-cli devicestate_transition --acc_pol_recede=$h_pol_physical -owner_loc
 "$GTA_CLI_BINARY" devicestate_transition --acc_pol_recede="$h_pol_physical" --owner_lock_count=5
 assert_success "devicestate_transition"
 
-echo "gta-cli devicestate_recede"
-"$GTA_CLI_BINARY" devicestate_recede
+echo "gta-cli devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY"
+"$GTA_CLI_BINARY" devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY
 assert_success "devicestate_recede"
 
 echo "gta-cli devicestate_transition --acc_pol_recede=$h_pol_physical --owner_lock_count=5"
@@ -276,16 +277,16 @@ echo "gta-cli personality_enumerate_application --app_name=gta-cli"
 "$GTA_CLI_BINARY" personality_enumerate_application --app_name=gta-cli
 assert_success "personality_enumerate_application"
 
-echo "gta-cli devicestate_recede"
-"$GTA_CLI_BINARY" devicestate_recede
+echo "gta-cli devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY"
+"$GTA_CLI_BINARY" devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY
 assert_success "devicestate_recede"
 
 echo "gta-cli personality_enumerate_application --app_name=gta-cli"
 "$GTA_CLI_BINARY" personality_enumerate_application --app_name=gta-cli
 assert_success "personality_enumerate_application"
 
-echo "gta-cli devicestate_recede"
-"$GTA_CLI_BINARY" devicestate_recede
+echo "gta-cli devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY"
+"$GTA_CLI_BINARY" devicestate_recede --acc_tok=$ACCESSTOKEN_DUMMY
 assert_success "devicestate_recede"
 
 echo "gta-cli personality_enumerate_application --app_name=gta-cli"
