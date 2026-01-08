@@ -28,6 +28,8 @@ extern const struct gta_function_list_t * gta_sw_provider_init(
 #define MAXLEN_PERSONALITY_NAME 100
 #define MAXLEN_ATTRIBUTE 150
 #define MAXLEN_STATEDIR_PATH 150
+#define FINGERPRINT_LEN 64
+#define MAXLEN_FINGERPRINT_BASE64 (4 * ((FINGERPRINT_LEN + 2) / 3)) /* 88 */
 
 /* List of all profiles supported by gta-cli */
 static char profiles_to_register[][MAXLEN_PROFILE] = {
@@ -78,6 +80,11 @@ enum functions {
     devicestate_transition,
     devicestate_recede,
     access_policy_simple,
+    access_policy_create,
+    access_policy_add_basic_access_token_descriptor,
+    access_policy_add_physical_presence_access_token_descriptor,
+    access_policy_add_pers_derived_access_token_descriptor,
+    access_policy_destroy,
     FUNC_UNKNOWN
 };
 
@@ -108,6 +115,7 @@ struct arguments {
     char * attr_type;
     char * attr_name;
     char * attr_val;
+    bool base64;
     char * data;
     char * seal;
     t_ctx_attributes ctx_attributes;     /* list of context attributes for arguments --ctx_attr and --ctx_attr_file
@@ -120,6 +128,8 @@ struct arguments {
     gta_access_policy_handle_t h_auth_recede;
     size_t * owner_lock_count;
     char * descr_type;
+    gta_access_policy_handle_t h_policy;
+    char * fingerprint;
 };
 
 /* Function prototypes */
@@ -139,6 +149,7 @@ int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
 void init_ofilestream(myio_ofilestream_t * ofilestream);
 int encode_b64(const unsigned char * p_token, size_t in_len, unsigned char ** pp_b64);
 int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len);
+int decode_b64_fingerprint(const char * p_fingerprint, gta_personality_fingerprint_t fingerprint);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -158,6 +169,7 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->attr_type = NULL;
     arguments->attr_name = NULL;
     arguments->attr_val = NULL;
+    arguments->base64 = false;
     arguments->data = NULL;
     arguments->seal = NULL;
     arguments->ctx_attributes.num = 0;
@@ -167,6 +179,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     arguments->h_auth_recede = GTA_HANDLE_INVALID;
     arguments->owner_lock_count = NULL;
     arguments->descr_type = NULL;
+    arguments->h_policy = GTA_HANDLE_INVALID;
+    arguments->fingerprint = NULL;
 
     /* Parse the arguments */
 
@@ -218,6 +232,17 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
     } else if (strcmp(argv[1], "access_policy_simple") == 0) {
         arguments->func = access_policy_simple;
         b_options = false;
+    } else if (strcmp(argv[1], "access_policy_create") == 0) {
+        arguments->func = access_policy_create;
+        b_options = false;
+    } else if (strcmp(argv[1], "access_policy_add_basic_access_token_descriptor") == 0) {
+        arguments->func = access_policy_add_basic_access_token_descriptor;
+    } else if (strcmp(argv[1], "access_policy_add_physical_presence_access_token_descriptor") == 0) {
+        arguments->func = access_policy_add_physical_presence_access_token_descriptor;
+    } else if (strcmp(argv[1], "access_policy_add_pers_derived_access_token_descriptor") == 0) {
+        arguments->func = access_policy_add_pers_derived_access_token_descriptor;
+    } else if (strcmp(argv[1], "access_policy_destroy") == 0) {
+        arguments->func = access_policy_destroy;
     } else {
         fprintf(stderr, "Unknown argument: %s\n", argv[1]);
         show_help();
@@ -257,6 +282,8 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             arguments->attr_name = argv[i] + 12;
         } else if (strncmp(argv[i], "--attr_val=", 11) == 0) {
             arguments->attr_val = argv[i] + 11;
+        } else if (strncmp(argv[i], "--base64", 8) == 0) {
+            arguments->base64 = true;
         } else if (strncmp(argv[i], "--data=", 7) == 0) {
             arguments->data = argv[i] + 7;
         } else if (strncmp(argv[i], "--seal=", 7) == 0) {
@@ -387,6 +414,12 @@ int parse_args(int argc, char * argv[], struct arguments * arguments)
             }
         } else if (strncmp(argv[i], "--descr_type=", 13) == 0) {
             arguments->descr_type = argv[i] + 13;
+        } else if (strncmp(argv[i], "--acc_pol=", 10) == 0) {
+            if (EXIT_FAILURE == parse_handle(argv[i] + 10, arguments->func, &arguments->h_policy)) {
+                return EXIT_FAILURE;
+            }
+        } else if (strncmp(argv[i], "--fingerprint=", 14) == 0) {
+            arguments->fingerprint = argv[i] + 14;
         } else if (strcmp(argv[i], "--help") == 0) {
             show_function_help(arguments->func);
             exit(EXIT_SUCCESS);
@@ -431,6 +464,25 @@ void show_help()
     printf("  devicestate_transition             advance into a new transition device state (push)\n");
     printf("  devicestate_recede                 recede into the previous transition device state (pop)\n");
     printf("  access_policy_simple               get handle for a simple (static) access policy\n");
+    printf("  access_policy_create               create an access policy and return the handle to the access policy "
+           "object\n");
+    printf("                                     call access_policy_add_basic_access_token_descriptor or "
+           "access_policy_add_pers_derived_access_token_descriptor\n");
+    printf("                                     to specify conditions that shall be met by an access token in order "
+           "to fulfil an access policy\n");
+    printf("  access_policy_add_basic_access_token_descriptor               add a descriptor for a basic access token "
+           "to the policy\n");
+    printf("                                                                only applicable for access policies that "
+           "are to be assigned to personalities\n");
+    printf(
+        "  access_policy_add_physical_presence_access_token_descriptor   add physical presence to an access policy\n");
+    printf("                                                                only applicable for access policies that "
+           "are to be assigned to device states\n");
+    printf("  access_policy_add_pers_derived_access_token_descriptor        add a descriptor for a personality derived "
+           "access token to the policy\n");
+
+    printf("  access_policy_destroy                                         destroy an access policy created with "
+           "access_policy_create\n");
 
     printf("\nSupported profiles:\n");
     for (size_t i = 0; i < (sizeof(profiles_to_register) / sizeof(profiles_to_register[0])); ++i) {
@@ -523,6 +575,7 @@ void show_function_help(enum functions func)
         printf("  --pers=PERSONALITY_NAME     personality to get general attribute from\n");
         printf("  --prof=PROFILE              profile to use\n");
         printf("  --attr_name=ATTRIBUTE_NAME  attribute to be queried\n");
+        printf("  [--base64                   return attribute as base64 encoded string]\n");
         break;
     case personality_remove_attribute:
         printf("Usage: gta-cli personality_remove_attribute --options\n");
@@ -596,6 +649,35 @@ void show_function_help(enum functions func)
         printf("Options:\n");
         printf(" [--descr_type={INITIAL|BASIC|PHYSICAL_PRESENCE}]   type of single access descriptor that is used to "
                "setup the simple access policy [default: INITIAL]\n");
+        break;
+    case access_policy_create:
+        printf("Usage: gta-cli access_policy_create\n");
+        printf("No options\n");
+        break;
+    case access_policy_add_basic_access_token_descriptor:
+        printf("Usage: gta-cli access_policy_add_basic_access_token_descriptor\n");
+        printf("Options:\n");
+        printf("  --acc_pol=HANDLE   handle to the access policy object\n");
+        break;
+    case access_policy_add_physical_presence_access_token_descriptor:
+        printf("Usage: gta-cli access_policy_add_physical_presence_access_token_descriptor\n");
+        printf("Options:\n");
+        printf("  --acc_pol=HANDLE   handle to the access policy object\n");
+        break;
+    case access_policy_add_pers_derived_access_token_descriptor:
+        printf("Usage: gta-cli access_policy_add_pers_derived_access_token_descriptor\n");
+        printf("Options:\n");
+        printf("  --acc_pol=HANDLE          handle to the access policy object\n");
+        printf("  --fingerprint=FINGERPRINT base64 encoded fingerprint of the personality that is to be used to derive "
+               "an access token\n");
+        printf("  --prof=PROFILE_NAME       verification profile that is to be used to derive the access token\n");
+        printf("                            this profile is bound to any resulting access token to decide whether the "
+               "correct profile has been used to derive the token\n");
+        break;
+    case access_policy_destroy:
+        printf("Usage: gta-cli access_policy_destroy\n");
+        printf("Options:\n");
+        printf("  --acc_pol=HANDLE   handle to the access policy object\n");
         break;
 
     default:
@@ -885,6 +967,31 @@ int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_b
     *pp_bytes = buf;
     *p_out_len = out_len;
     return EXIT_SUCCESS;
+}
+
+int decode_b64_fingerprint(const char * p_fingerprint, gta_personality_fingerprint_t fingerprint)
+{
+    int ret = EXIT_FAILURE;
+    unsigned char * p_fp = NULL;
+    size_t decoded_len = 0;
+    if (EXIT_SUCCESS != decode_b64(
+                            (const unsigned char *)p_fingerprint,
+                            strnlen(p_fingerprint, MAXLEN_FINGERPRINT_BASE64),
+                            &p_fp,
+                            &decoded_len)) {
+        fprintf(stderr, "decode_b64 failed\n");
+        return ret;
+    }
+
+    if (decoded_len == sizeof(gta_personality_fingerprint_t)) {
+        memcpy(fingerprint, p_fp, decoded_len);
+        ret = EXIT_SUCCESS;
+    } else {
+        fprintf(stderr, "encoding of fingerprint failed\n");
+    }
+
+    free(p_fp);
+    return ret;
 }
 
 int main(int argc, char * argv[])
@@ -1208,19 +1315,39 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
 
-        myio_ofilestream_t ostream_attr_value = {0};
-        init_ofilestream(&ostream_attr_value);
-
         h_ctx = gta_context_open(h_inst, arguments.pers, arguments.prof, &errinfo);
         if (NULL == h_ctx) {
             fprintf(stderr, "gta_context_open failed with ERROR_CODE %ld\n", errinfo);
             goto cleanup;
         }
 
-        if (!gta_personality_get_attribute(
-                h_ctx, arguments.attr_name, (gtaio_ostream_t *)&ostream_attr_value, &errinfo)) {
-            fprintf(stderr, "gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
-            goto cleanup;
+        if (arguments.base64) {
+            unsigned char * p_attribute_b64 = NULL;
+            char attrbuf[MAXLEN_ATTRIBUTE] = {0};
+            ostream_to_buf_t o_attr = {0};
+
+            ostream_to_buf_init(&o_attr, attrbuf, sizeof(attrbuf));
+            if (!gta_personality_get_attribute(h_ctx, arguments.attr_name, (gtaio_ostream_t *)&o_attr, &errinfo)) {
+                fprintf(stderr, "gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
+                goto cleanup;
+            }
+
+            if (EXIT_FAILURE == encode_b64((const unsigned char *)attrbuf, o_attr.buf_pos, &p_attribute_b64)) {
+                fprintf(stderr, "encode_b64 failed\n");
+                goto cleanup;
+            }
+            printf("%s\n", (char *)p_attribute_b64);
+            free(p_attribute_b64);
+
+        } else {
+            myio_ofilestream_t ostream_attr_value = {0};
+            init_ofilestream(&ostream_attr_value);
+
+            if (!gta_personality_get_attribute(
+                    h_ctx, arguments.attr_name, (gtaio_ostream_t *)&ostream_attr_value, &errinfo)) {
+                fprintf(stderr, "gta_personality_get_attribute failed with ERROR_CODE %ld\n", errinfo);
+                goto cleanup;
+            }
         }
 
         if (!gta_context_close(h_ctx, &errinfo)) {
@@ -1518,6 +1645,97 @@ int main(int argc, char * argv[])
             goto cleanup;
         }
         printf("%" PRIuPTR "\n", (uintptr_t)h_simple);
+
+        break;
+    }
+
+    case access_policy_create: {
+
+        gta_access_policy_handle_t h_policy = GTA_HANDLE_INVALID;
+
+        h_policy = gta_access_policy_create(h_inst, &errinfo);
+        if (GTA_HANDLE_INVALID == h_policy) {
+            fprintf(stderr, "gta_access_policy_create failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+        printf("%" PRIuPTR "\n", (uintptr_t)h_policy);
+
+        break;
+    }
+
+    case access_policy_add_basic_access_token_descriptor: {
+
+        if (GTA_HANDLE_INVALID == arguments.h_policy) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        if (true != gta_access_policy_add_basic_access_token_descriptor(arguments.h_policy, &errinfo)) {
+            fprintf(stderr, "access_policy_add_basic_access_token_descriptor failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
+
+        break;
+    }
+
+    case access_policy_add_physical_presence_access_token_descriptor: {
+
+        if (GTA_HANDLE_INVALID == arguments.h_policy) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        if (true != gta_access_policy_add_physical_presence_access_token_descriptor(arguments.h_policy, &errinfo)) {
+            fprintf(
+                stderr,
+                "gta_access_policy_add_physical_presence_access_token_descriptor failed with ERROR_CODE %ld\n",
+                errinfo);
+            goto cleanup;
+        }
+
+        break;
+    }
+
+    case access_policy_add_pers_derived_access_token_descriptor: {
+
+        if ((GTA_HANDLE_INVALID == arguments.h_policy) || (NULL == arguments.fingerprint) || (NULL == arguments.prof)) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        gta_personality_fingerprint_t fingerprint = {0};
+
+        if (EXIT_SUCCESS != decode_b64_fingerprint((const char *)arguments.fingerprint, fingerprint)) {
+            goto cleanup;
+        }
+
+        if (true != gta_access_policy_add_pers_derived_access_token_descriptor(
+                        arguments.h_policy, fingerprint, arguments.prof, &errinfo)) {
+            fprintf(
+                stderr,
+                "gta_access_policy_add_pers_derived_access_token_descriptor failed with ERROR_CODE %ld\n",
+                errinfo);
+            goto cleanup;
+        }
+
+        break;
+    }
+
+    case access_policy_destroy: {
+
+        if (GTA_HANDLE_INVALID == arguments.h_policy) {
+            fprintf(stderr, "Invalid or missing function arguments\n");
+            show_function_help(arguments.func);
+            goto cleanup;
+        }
+
+        if (true != gta_access_policy_destroy(arguments.h_policy, &errinfo)) {
+            fprintf(stderr, "gta_access_policy_destroy failed with ERROR_CODE %ld\n", errinfo);
+            goto cleanup;
+        }
 
         break;
     }
