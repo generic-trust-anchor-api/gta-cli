@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright 2025 Siemens
+ * SPDX-FileCopyrightText: Copyright 2025-2026 Siemens
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <gta_api/gta_api.h>
 #include <inttypes.h>
+#include <openssl/evp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,6 +137,8 @@ int parse_pers_flag(const struct arguments * arguments, gta_personality_enum_fla
 int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_type_t * descr_type);
 int init_ifilestream(const char * data, myio_ifilestream_t * ifilestream);
 void init_ofilestream(myio_ofilestream_t * ofilestream);
+int encode_b64(const unsigned char * p_token, size_t in_len, unsigned char ** pp_b64);
+int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len);
 
 /* Parse function to handle command line arguments */
 int parse_args(int argc, char * argv[], struct arguments * arguments)
@@ -812,6 +815,76 @@ int parse_descr_type(const struct arguments * arguments, gta_access_descriptor_t
         }
     }
     return ret;
+}
+
+int encode_b64(const unsigned char * p_token, size_t in_len, unsigned char ** pp_b64)
+{
+    if (NULL == pp_b64) {
+        return EXIT_FAILURE;
+    }
+
+    /* calculate length for base64 string*/
+    size_t out_len = 4 * ((in_len + 2) / 3);
+
+    *pp_b64 = malloc(out_len + 1);
+    if (NULL == *pp_b64) {
+        return EXIT_FAILURE;
+    }
+
+    int written = EVP_EncodeBlock(*pp_b64, p_token, (int)in_len);
+    if (written <= 0) {
+        free(*pp_b64);
+        return EXIT_FAILURE;
+    }
+    (*pp_b64)[written] = '\0';
+
+    return EXIT_SUCCESS;
+}
+
+int decode_b64(const unsigned char * p_b64, size_t in_len, unsigned char ** pp_bytes, size_t * p_out_len)
+{
+    if (p_b64 == NULL || pp_bytes == NULL || p_out_len == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    /* no input: nothing to decode */
+    if (in_len == 0) {
+        *pp_bytes = NULL;
+        *p_out_len = 0;
+        return EXIT_SUCCESS;
+    }
+
+    /* length of base64 is always a multiple of 4 */
+    if (in_len % 4 != 0) {
+        return EXIT_FAILURE;
+    }
+
+    /* calculate max output len, 3 bytes per base64 character */
+    size_t alloc_len = 3 * (in_len / 4);
+    unsigned char * buf = (unsigned char *)malloc(alloc_len);
+    if (buf == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    /* EVP_DecodeBlock writes max alloc_len bytes and returns the number of written bytes or -1 if an error occurs */
+    int written = EVP_DecodeBlock(buf, p_b64, (int)in_len);
+    if (written < 0) {
+        free(buf);
+        return EXIT_FAILURE;
+    }
+
+    /* correct length based on padding ('=' at the end) */
+    size_t pad = 0;
+    if (in_len >= 1 && p_b64[in_len - 1] == '=')
+        pad++;
+    if (in_len >= 2 && p_b64[in_len - 2] == '=')
+        pad++;
+
+    size_t out_len = (size_t)written - pad;
+
+    *pp_bytes = buf;
+    *p_out_len = out_len;
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char * argv[])
