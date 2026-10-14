@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2025 Siemens
+SPDX-FileCopyrightText: Copyright 2025-2026 Siemens
 
 SPDX-License-Identifier: Apache-2.0
 -->
@@ -17,6 +17,10 @@ The CLI depends on [GTA API Core](https://github.com/generic-trust-anchor-api/gt
 - In the project root, initialize build system and build directory (like ./configure for automake):
 ```
 $ meson setup <build_dir>
+```
+- Optional PQC profile support is controlled by the Meson option `enable-post-quantum-crypto`:
+```
+$ meson setup <build_dir> -Denable-post-quantum-crypto=true
 ```
 - Compile the code, the build directory is specified with the `-C` option:
 ```

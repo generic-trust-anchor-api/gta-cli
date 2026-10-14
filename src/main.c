@@ -35,7 +35,9 @@ static char profiles_to_register[][MAXLEN_PROFILE] = {
     "ch.iec.30168.basic.local_data_integrity_only",
     "com.github.generic-trust-anchor-api.basic.rsa",
     "com.github.generic-trust-anchor-api.basic.ec",
+#ifdef ENABLE_PQC
     "com.github.generic-trust-anchor-api.basic.ml-dsa",
+#endif
     "com.github.generic-trust-anchor-api.basic.tls",
     "com.github.generic-trust-anchor-api.basic.signature",
     "com.github.generic-trust-anchor-api.basic.jwt",

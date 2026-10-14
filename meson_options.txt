@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright 2026 Siemens
+#
+# SPDX-License-Identifier: Apache-2.0
+
+option('enable-post-quantum-crypto', type : 'boolean', value : false, description : 'Enable Post-Quantum crypto profiles')

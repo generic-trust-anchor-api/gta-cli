@@ -45,7 +45,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action/install-build-wrapper@22918119ff8e1ca75a623e15c8296b6ea4fbe28f #v8.2.1
       - name: Run Build Wrapper
         run: |
-          meson setup build
+          meson setup build -Denable-post-quantum-crypto=true
           build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ninja -C build
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f #v8.2.1
