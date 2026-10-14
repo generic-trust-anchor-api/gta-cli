@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2025 Siemens
+# SPDX-FileCopyrightText: Copyright 2025-2026 Siemens
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -16,6 +16,17 @@ project('CLI for GTA API',
 
 # Specify global compiler options
 c_compiler = meson.get_compiler('c')
+enable_pqc = get_option('enable-post-quantum-crypto')
+
+if enable_pqc
+    add_project_arguments(
+        c_compiler.get_supported_arguments(
+            '-DENABLE_PQC',
+        ),
+        language: 'c'
+    )
+endif
+
 add_project_arguments(
     c_compiler.get_supported_arguments(
         '-Wextra',
