@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright 2025 Siemens
+# SPDX-FileCopyrightText: Copyright 2025-2026 Siemens
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -118,6 +118,11 @@ assert_success "personality_create"
 echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default_delete --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa"
 "$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_rsa_default_delete --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.rsa
 assert_success "personality_create"
+if [[ "${ENABLE_PQC:-false}" == "true" ]]; then
+  echo "gta-cli personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_mldsa --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.ml-dsa"
+  "$GTA_CLI_BINARY" personality_create --id_val=DE-AD-BE-EF-FE-ED --pers=test_pers_mldsa --app_name=gta-cli --prof=com.github.generic-trust-anchor-api.basic.ml-dsa
+  assert_success "personality_create"
+fi
 echo ""
 
 echo "< ./test_data/plain.txt gta-cli seal_data --pers=test_pers_seal_data --prof=ch.iec.30168.basic.local_data_protection > ${TEST_DIRECTORY}/out.enc"

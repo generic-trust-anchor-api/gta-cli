@@ -69,7 +69,8 @@ test(
     workdir : meson.project_source_root()+'/test',
     env : [
         'GTA_CLI_BINARY='+gta_cli.full_path(),
-        'TEST_DIRECTORY='+meson.project_build_root()+'/test'
+        'TEST_DIRECTORY='+meson.project_build_root()+'/test',
+        'ENABLE_PQC='+get_option('enable-post-quantum-crypto').to_string(),
     ],
     is_parallel : false
 )
@@ -81,7 +82,7 @@ test(
     workdir : meson.project_source_root()+'/test',
     env : [
         'GTA_CLI_BINARY='+gta_cli.full_path(),
-        'TEST_DIRECTORY='+meson.project_build_root()+'/test'
+        'TEST_DIRECTORY='+meson.project_build_root()+'/test',
     ],
     is_parallel : false
 )
